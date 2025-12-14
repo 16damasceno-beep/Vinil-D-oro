@@ -1,0 +1,7 @@
+{
+  "name": "Vinil D'oro",
+  "description": "Grupo de Venda de Vinis Online",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
