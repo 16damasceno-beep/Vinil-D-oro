@@ -5,13 +5,16 @@ import { Genre } from "../types";
 const genreKeys = Object.values(Genre);
 
 export const getAlbumDetails = async (query: string): Promise<{ artist: string; title: string; genre: string; description: string; year: number } | null> => {
-  if (!process.env.API_KEY) {
+  // Safe check for API Key to prevent crash in browser environments where process is undefined
+  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+
+  if (!apiKey) {
     console.error("API Key missing");
     return null;
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
