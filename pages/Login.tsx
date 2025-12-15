@@ -5,9 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { User, UserRole } from '../types';
 
 export const Login: React.FC = () => {
-  const { login, register } = useStore();
+  const { login, register, requestPasswordReset } = useStore();
   const navigate = useNavigate();
-  const [isRegistering, setIsRegistering] = useState(false);
+  
+  // Controls current view: LOGIN, REGISTER, or FORGOT
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
 
   // Form State
   const [email, setEmail] = useState('');
@@ -49,7 +51,20 @@ export const Login: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isRegistering) {
+    
+    if (view === 'FORGOT') {
+      if (!email) return alert("Por favor, digite seu e-mail.");
+      const success = requestPasswordReset(email);
+      if (success) {
+        // NotificationService inside store handles the alert/log
+        setView('LOGIN');
+      } else {
+        alert("E-mail não encontrado em nossa base de dados.");
+      }
+      return;
+    }
+
+    if (view === 'REGISTER') {
       if (!acceptedTerms) {
         return alert("Para prosseguir com o cadastro, você deve ler e aceitar o Termo de Responsabilidade.");
       }
@@ -89,28 +104,39 @@ export const Login: React.FC = () => {
       register(newUser);
       navigate('/profile');
     } else {
+      // LOGIN
       if (!email || !password) return alert("Preencha email e senha.");
       login(email, password);
       navigate('/');
     }
   };
 
+  const renderTitle = () => {
+    if (view === 'REGISTER') return <>Junte-se ao <span className="text-vinyl-accent">Vinil D'oro</span></>;
+    if (view === 'FORGOT') return 'Recuperar Senha';
+    return 'Entrar na conta';
+  }
+
+  const renderSubtitle = () => {
+    if (view === 'REGISTER') return 'Cadastre-se para comprar ou vender.';
+    if (view === 'FORGOT') return 'Enviaremos um link de redefinição para seu e-mail.';
+    return 'Bem-vindo de volta, colecionador.';
+  }
+
   return (
     <div className="min-h-screen bg-vinyl-black flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-gray-900 p-8 rounded-xl shadow-2xl border border-gray-800">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            {isRegistering ? (
-              <>Junte-se ao <span className="text-vinyl-accent">Vinil D'oro</span></>
-            ) : (
-              'Entrar na conta'
-            )}
+            {renderTitle()}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-400">
-            {isRegistering ? 'Cadastre-se para comprar ou vender.' : 'Bem-vindo de volta, colecionador.'}
+            {renderSubtitle()}
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          
+          {/* Email is always visible */}
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="email-address" className="sr-only">Endereço de Email</label>
@@ -119,32 +145,35 @@ export const Login: React.FC = () => {
                 name="email"
                 type="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 rounded-t-md focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm"
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm ${view === 'FORGOT' ? 'rounded-md' : 'rounded-t-md'}`}
                 placeholder="Endereço de Email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
               />
             </div>
             
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="sr-only">Senha</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm ${!isRegistering ? 'rounded-b-md' : ''}`}
-                placeholder="Senha"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-              />
-              {isRegistering && (
-                <p className="text-[10px] text-gray-400 p-2 bg-gray-800">Mínimo 8 caracteres, 1 maiúscula, 1 número.</p>
-              )}
-            </div>
+            {/* Password Field - Hidden in Forgot View */}
+            {view !== 'FORGOT' && (
+              <div>
+                <label htmlFor="password" className="sr-only">Senha</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm ${view === 'LOGIN' ? 'rounded-b-md' : ''}`}
+                  placeholder="Senha"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                />
+                {view === 'REGISTER' && (
+                  <p className="text-[10px] text-gray-400 p-2 bg-gray-800">Mínimo 8 caracteres, 1 maiúscula, 1 número.</p>
+                )}
+              </div>
+            )}
 
-            {isRegistering && (
+            {/* Registration Fields */}
+            {view === 'REGISTER' && (
               <>
                  <div>
                   <input
@@ -239,18 +268,49 @@ export const Login: React.FC = () => {
               type="submit"
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-md text-black bg-vinyl-accent hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
             >
-              {isRegistering ? 'Aceitar e Cadastrar' : 'Entrar'}
+              {view === 'REGISTER' ? 'Aceitar e Cadastrar' : (view === 'FORGOT' ? 'Enviar Link de Recuperação' : 'Entrar')}
             </button>
           </div>
           
-          <div className="text-center">
-            <button
-              type="button"
-              className="text-sm text-gray-400 hover:text-white"
-              onClick={() => setIsRegistering(!isRegistering)}
-            >
-              {isRegistering ? 'Já tem uma conta? Entrar' : "Não tem uma conta? Cadastrar"}
-            </button>
+          <div className="text-center space-y-2">
+            {view === 'LOGIN' && (
+              <>
+                <button
+                  type="button"
+                  className="block w-full text-sm text-gray-400 hover:text-white"
+                  onClick={() => setView('FORGOT')}
+                >
+                  Esqueci minha senha
+                </button>
+                <button
+                  type="button"
+                  className="block w-full text-sm text-gray-400 hover:text-white"
+                  onClick={() => setView('REGISTER')}
+                >
+                  Não tem uma conta? Cadastrar
+                </button>
+              </>
+            )}
+
+            {view === 'REGISTER' && (
+              <button
+                type="button"
+                className="text-sm text-gray-400 hover:text-white"
+                onClick={() => setView('LOGIN')}
+              >
+                Já tem uma conta? Entrar
+              </button>
+            )}
+
+            {view === 'FORGOT' && (
+              <button
+                type="button"
+                className="text-sm text-gray-400 hover:text-white"
+                onClick={() => setView('LOGIN')}
+              >
+                Voltar para Login
+              </button>
+            )}
           </div>
         </form>
       </div>

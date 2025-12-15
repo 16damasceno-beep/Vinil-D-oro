@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType } from './types';
+import { sendSaleNotification, sendReservationRequestNotification, sendReservationDecisionNotification, sendPasswordResetEmail } from './services/notificationService';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -33,6 +34,9 @@ interface StoreContextType {
   // Financials
   updateUserFinancials: (bankInfo?: BankInfo, paymentMethod?: PaymentMethod) => void;
   depositFunds: (amount: number) => void;
+  // Auth Recovery
+  requestPasswordReset: (email: string) => boolean;
+  completePasswordReset: (email: string, newPassword: string) => void;
   // Admin Functions
   deleteUser: (userId: string) => void;
   deleteListing: (listingId: string) => void;
@@ -320,6 +324,25 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const logout = () => setCurrentUser(null);
 
+  const requestPasswordReset = (email: string): boolean => {
+    const user = users.find(u => u.email === email);
+    if (user) {
+      sendPasswordResetEmail(user);
+      return true;
+    }
+    // For security, usually we don't say if user exists or not, but for this mock app:
+    return false;
+  };
+
+  const completePasswordReset = (email: string, newPassword: string) => {
+    setUsers(prev => prev.map(u => {
+      if (u.email === email) {
+        return { ...u, password: newPassword };
+      }
+      return u;
+    }));
+  };
+
   const addToCatalog = (item: CatalogItem) => {
     setCatalog([...catalog, item]);
   };
@@ -383,6 +406,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
 
+    const catalogItem = catalog.find(c => c.id === listing.catalogItemId)!;
+    const seller = users.find(u => u.id === listing.sellerId)!;
+
     const newReservation: Reservation = {
       id: `res-${Date.now()}`,
       listingId,
@@ -403,9 +429,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           notifications: [
             {
               id: `n-res-${Date.now()}`,
-              message: `Nova solicitação de reserva para o item.`,
+              message: `Nova solicitação de reserva de ${currentUser.nickname} para "${catalogItem.title}".`,
               read: false,
-              createdAt: new Date().toISOString()
+              createdAt: new Date().toISOString(),
+              type: 'RESERVATION_REQUEST',
+              metadata: { reservationId: newReservation.id, listingId: listing.id }
             },
             ...u.notifications
           ]
@@ -414,16 +442,21 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return u;
     }));
 
-    alert("Solicitação de reserva enviada! Aguarde a aprovação do vendedor.");
+    // EXTERNAL NOTIFICATION SIMULATION
+    sendReservationRequestNotification(seller, currentUser, listing, catalogItem, newReservation.id);
+
+    alert("Solicitação de reserva enviada! O vendedor foi notificado por E-mail e WhatsApp.");
   };
 
   const approveReservation = (reservationId: string) => {
     const reservation = reservations.find(r => r.id === reservationId);
     if (!reservation || reservation.status !== 'PENDENTE') return;
 
-    const initialCost = 5.00;
-    const sellerShare = 3.00;
-    // Platform share is 2.00 (implicit)
+    // UPDATE: New Fees
+    // Total: R$ 10.00
+    // Platform Share (30%): R$ 3.00
+    // Seller Share (70%): R$ 7.00
+    const sellerShare = 7.00;
 
     // 1. Update Reservation
     const expiresAt = new Date();
@@ -442,15 +475,27 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return l;
     }));
 
-    // 3. Credit Seller
+    const catalogItem = catalog.find(c => c.id === listings.find(l => l.id === reservation.listingId)!.catalogItemId)!;
+    const buyer = users.find(u => u.id === reservation.buyerId);
+    const seller = users.find(u => u.id === reservation.sellerId);
+
+    // 3. Credit Seller & Remove actionable notification
     setUsers(prev => prev.map(u => {
       if (u.id === reservation.sellerId) {
+        // Mark the specific request notification as read/handled
+        const updatedNotifications = u.notifications.map(n => {
+           if (n.type === 'RESERVATION_REQUEST' && n.metadata?.reservationId === reservationId) {
+             return { ...n, read: true, message: n.message + ' (Aceita)' };
+           }
+           return n;
+        });
+
         return { 
           ...u, 
           walletBalance: u.walletBalance + sellerShare,
           notifications: [
-            { id: `n-res-app-${Date.now()}`, message: `Reserva aprovada! Você recebeu R$ 3,00.`, read: false, createdAt: new Date().toISOString() },
-            ...u.notifications
+            { id: `n-res-app-${Date.now()}`, message: `Reserva aprovada! Você recebeu R$ 7,00.`, read: false, createdAt: new Date().toISOString() },
+            ...updatedNotifications
           ]
         };
       }
@@ -466,14 +511,44 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return u;
     }));
 
-    alert(`Reserva aprovada! O item agora está reservado e R$ 3,00 foram creditados na sua carteira.`);
+    if(buyer && seller) {
+      sendReservationDecisionNotification(buyer, seller, catalogItem, true);
+    }
+
+    alert(`Reserva aprovada! O item agora está reservado e R$ 7,00 foram creditados na sua carteira.`);
   };
 
   const rejectReservation = (reservationId: string) => {
+    const reservation = reservations.find(r => r.id === reservationId);
+    if (!reservation) return;
+
     setReservations(prev => prev.map(r => {
       if (r.id === reservationId) return { ...r, status: 'RECUSADA' };
       return r;
     }));
+
+    const catalogItem = catalog.find(c => c.id === listings.find(l => l.id === reservation.listingId)!.catalogItemId)!;
+    const buyer = users.find(u => u.id === reservation.buyerId);
+    const seller = users.find(u => u.id === reservation.sellerId);
+
+    // Update Seller Notifications (mark as handled)
+    setUsers(prev => prev.map(u => {
+      if (u.id === reservation.sellerId) {
+         const updatedNotifications = u.notifications.map(n => {
+           if (n.type === 'RESERVATION_REQUEST' && n.metadata?.reservationId === reservationId) {
+             return { ...n, read: true, message: n.message + ' (Recusada)' };
+           }
+           return n;
+        });
+        return { ...u, notifications: updatedNotifications };
+      }
+      return u;
+    }));
+    
+    if(buyer && seller) {
+      sendReservationDecisionNotification(buyer, seller, catalogItem, false);
+    }
+
     alert("Solicitação de reserva recusada.");
   };
 
@@ -521,10 +596,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return;
     }
 
-    const costPerDay = 2.00;
+    // UPDATE: New Fees for Extension
+    // Total per day: R$ 1.50
+    // Seller Share per day: R$ 1.00
+    // Platform Share per day: R$ 0.50
+    const costPerDay = 1.50;
     const totalCost = costPerDay * extraDays;
     const sellerShare = 1.00 * extraDays;
-    // Platform share is 1.00 * extraDays
 
     // Update Reservation Date
     const newExpiresAt = new Date(reservation.expiresAt);
@@ -585,6 +663,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
     const itemName = catalogItem ? catalogItem.title : "um disco";
+    const seller = users.find(u => u.id === listing.sellerId)!;
 
     // 1. Update Listing
     setListings(prev => prev.map(l => {
@@ -613,7 +692,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             id: `n-${Date.now()}-${Math.random()}`,
             message: `O item "${itemName}" que estava em seus favoritos foi vendido.`,
             read: false,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            type: 'INFO'
           };
           updatedNotifications = [newNotification, ...updatedNotifications];
         }
@@ -624,10 +704,29 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           notifications: updatedNotifications
         };
       }
+      if (user.id === listing.sellerId) {
+         // Notify Seller Internally
+          const newNotification: AppNotification = {
+            id: `n-sale-${Date.now()}`,
+            message: `Venda realizada: "${itemName}"! Aguardando envio.`,
+            read: false,
+            createdAt: new Date().toISOString(),
+            type: 'SALE_ALERT'
+          };
+          return {
+             ...user,
+             notifications: [newNotification, ...user.notifications]
+          }
+      }
       return user;
     }));
     
-    alert(`Compra realizada com sucesso!\n\nMétodo: ${method === 'PICKUP' ? 'Retirada em Mãos' : 'Envio'}\nTotal: R$ ${total.toFixed(2)}\n\nO pagamento ficará retido até a confirmação de recebimento.`);
+    // EXTERNAL NOTIFICATION SIMULATION
+    if(catalogItem) {
+      sendSaleNotification(seller, currentUser, listing, catalogItem);
+    }
+
+    alert(`Compra realizada com sucesso!\n\nMétodo: ${method === 'PICKUP' ? 'Retirada em Mãos' : 'Envio'}\nTotal: R$ ${total.toFixed(2)}\n\nO pagamento ficará retido até a confirmação de recebimento.\n\nO vendedor foi notificado via E-mail e WhatsApp.`);
   };
 
   // 2. Seller adds tracking code
@@ -652,8 +751,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const listingPrice = listing.price;
     const shipping = listing.finalShippingCost || 0;
     
-    // Fee only on item price
-    const fee = listingPrice * 0.05; 
+    // Fee only on item price - UPDATED TO 7%
+    const fee = listingPrice * 0.07; 
     const sellerEarnings = (listingPrice - fee) + shipping;
 
     setListings(prev => prev.map(l => {
@@ -670,7 +769,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return u;
     }));
 
-    alert(`Recebimento confirmado! O vendedor recebeu R$ ${sellerEarnings.toFixed(2)} (Produto - Taxa + Frete).`);
+    alert(`Recebimento confirmado! O vendedor recebeu R$ ${sellerEarnings.toFixed(2)} (Produto - 7% Taxa + Frete).`);
   };
 
   // 4. Mark as Sold Outside (No fee, no wallet update)
@@ -745,6 +844,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const markNotificationsAsRead = () => {
     if (!currentUser) return;
+    // Note: Actionable notifications should probably stay unread until acted upon, 
+    // but for simplicity we mark all as read here except Actionable ones might need custom logic.
+    // For now, let's mark all read, but buttons still work.
     setUsers(prevUsers => prevUsers.map(u => {
       if (u.id === currentUser.id) {
         return {
@@ -757,7 +859,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const getEnrichedListings = (): EnrichedListing[] => {
-    return listings.map(listing => {
+    return listings.map((listing): EnrichedListing | null => {
       const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
       const seller = users.find(u => u.id === listing.sellerId);
       const buyer = listing.buyerId ? users.find(u => u.id === listing.buyerId) : undefined;
@@ -826,7 +928,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       updateUserFinancials,
       depositFunds,
       deleteUser,
-      deleteListing
+      deleteListing,
+      requestPasswordReset,
+      completePasswordReset
     }}>
       {children}
     </StoreContext.Provider>

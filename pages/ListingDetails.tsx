@@ -92,7 +92,7 @@ export const ListingDetails: React.FC = () => {
     }
     if (listing.sellerId === currentUser.id) return alert("Você não pode reservar seu próprio item.");
 
-    if (confirm("Solicitar reserva por 5 dias?\n\nCusto: R$ 5,00\nO vendedor precisa aprovar a solicitação.")) {
+    if (confirm("Solicitar reserva por 5 dias?\n\nCusto: R$ 10,00\nO vendedor precisa aprovar a solicitação.")) {
       requestReservation(listing.id);
     }
   };
@@ -289,7 +289,7 @@ export const ListingDetails: React.FC = () => {
                   onClick={handleReservation}
                   className="w-full py-3 rounded-md font-bold text-md border border-purple-500 text-purple-400 hover:bg-purple-900/30 transition flex items-center justify-center gap-2"
                 >
-                  <span>Reservar (R$ 5,00 / 5 Dias)</span>
+                  <span>Reservar (R$ 10,00 / 5 Dias)</span>
                 </button>
               )}
             </div>

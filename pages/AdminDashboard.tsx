@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
@@ -27,7 +28,8 @@ export const AdminDashboard: React.FC = () => {
   // Financial Calc (Only for ADMIN)
   const completedSales = listings.filter(l => l.status === 'CONCLUÍDO');
   const totalRevenue = completedSales.reduce((sum, item) => sum + item.price, 0);
-  const platformFees = totalRevenue * 0.05; // 5% fee
+  // UPDATED FEE TO 7%
+  const platformFees = totalRevenue * 0.07; 
 
   const handleDeleteUser = (id: string, name: string) => {
     if (confirm(`ATENÇÃO: Você está prestes a excluir o usuário "${name}". Isso removerá todos os anúncios dele também. Confirmar?`)) {
@@ -94,7 +96,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
                 <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 relative overflow-hidden">
                    <div className="absolute top-0 right-0 p-2 opacity-10 text-6xl">💰</div>
-                  <h3 className="text-gray-400 text-sm uppercase font-bold mb-2">Receita Plataforma (5%)</h3>
+                  <h3 className="text-gray-400 text-sm uppercase font-bold mb-2">Receita Plataforma (7%)</h3>
                   <p className="text-3xl font-bold text-vinyl-accent">R$ {platformFees.toFixed(2)}</p>
                 </div>
               </>

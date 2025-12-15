@@ -22,6 +22,7 @@ export const Home: React.FC = () => {
       {/* Hero Section */}
       <div className="relative bg-gray-900 overflow-hidden">
         <div className="max-w-7xl mx-auto">
+          {/* Changed bg-gray-900 to lg:bg-transparent to avoid cutting the image on large screens */}
           <div className="relative z-10 pb-8 bg-gray-900 lg:bg-transparent sm:pb-16 md:pb-20 lg:max-w-2xl lg:w-full lg:pb-28 xl:pb-32">
             <main className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28">
               <div className="sm:text-center lg:text-left">
@@ -88,7 +89,7 @@ export const Home: React.FC = () => {
             src="https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=2070&auto=format&fit=crop"
             alt="Vinyl Records"
           />
-          {/* Gradient Overlay for Smooth Blending */}
+          {/* Gradient Overlay for Smooth Blending - Fixes the "cut" look */}
           <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/40 to-transparent lg:via-gray-900/10"></div>
         </div>
       </div>

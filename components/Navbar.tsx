@@ -1,9 +1,10 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { Link, useLocation } from 'react-router-dom';
 
 export const Navbar: React.FC = () => {
-  const { currentUser, logout, markNotificationsAsRead } = useStore();
+  const { currentUser, logout, markNotificationsAsRead, approveReservation, rejectReservation } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -32,6 +33,18 @@ export const Navbar: React.FC = () => {
       markNotificationsAsRead();
     }
     setShowNotifications(!showNotifications);
+  };
+
+  const handleAction = (e: React.MouseEvent, action: 'APPROVE' | 'REJECT', reservationId?: string) => {
+    e.stopPropagation(); // Prevent closing dropdown
+    if (!reservationId) return;
+    
+    if (action === 'APPROVE') {
+      approveReservation(reservationId);
+    } else {
+      rejectReservation(reservationId);
+    }
+    // No need to close manualy, store updates will trigger re-render
   };
 
   return (
@@ -125,18 +138,42 @@ export const Navbar: React.FC = () => {
                     
                     {/* Dropdown */}
                     {showNotifications && (
-                      <div className="absolute right-0 mt-2 w-80 bg-gray-900 border border-gray-700 rounded-md shadow-2xl overflow-hidden z-50">
+                      <div className="absolute right-0 mt-2 w-96 bg-gray-900 border border-gray-700 rounded-md shadow-2xl overflow-hidden z-50">
                         <div className="p-3 border-b border-gray-700 font-bold text-white bg-gray-800">
                           Notificações
                         </div>
-                        <div className="max-h-64 overflow-y-auto">
+                        <div className="max-h-80 overflow-y-auto">
                           {(!currentUser.notifications || currentUser.notifications.length === 0) ? (
                             <div className="p-4 text-center text-gray-500 text-sm">Sem notificações novas.</div>
                           ) : (
                             currentUser.notifications.slice(0, 10).map(n => (
-                              <div key={n.id} className={`p-3 border-b border-gray-800 hover:bg-gray-800 ${!n.read ? 'bg-gray-800/50' : ''}`}>
-                                <p className="text-sm text-gray-300">{n.message}</p>
-                                <p className="text-[10px] text-gray-500 mt-1">{new Date(n.createdAt).toLocaleDateString()}</p>
+                              <div key={n.id} className={`p-4 border-b border-gray-800 hover:bg-gray-800 ${!n.read ? 'bg-gray-800/50' : ''}`}>
+                                <div className="flex justify-between items-start mb-1">
+                                   <p className={`text-sm ${n.type === 'RESERVATION_REQUEST' ? 'text-white font-bold' : 'text-gray-300'}`}>
+                                      {n.message}
+                                   </p>
+                                   {n.type === 'SALE_ALERT' && <span className="text-xl">💰</span>}
+                                   {n.type === 'RESERVATION_REQUEST' && <span className="text-xl">🔔</span>}
+                                </div>
+                                <p className="text-[10px] text-gray-500">{new Date(n.createdAt).toLocaleDateString()}</p>
+
+                                {/* Action Buttons for Reservations inside Notification */}
+                                {n.type === 'RESERVATION_REQUEST' && !n.read && n.metadata?.reservationId && (
+                                  <div className="flex gap-2 mt-3">
+                                    <button 
+                                      onClick={(e) => handleAction(e, 'APPROVE', n.metadata?.reservationId)}
+                                      className="flex-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 rounded"
+                                    >
+                                      Aceitar
+                                    </button>
+                                    <button 
+                                      onClick={(e) => handleAction(e, 'REJECT', n.metadata?.reservationId)}
+                                      className="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 rounded"
+                                    >
+                                      Recusar
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             ))
                           )}

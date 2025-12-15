@@ -44,6 +44,13 @@ export interface AppNotification {
   message: string;
   read: boolean;
   createdAt: string;
+  // New fields for Actionable Notifications
+  type?: 'INFO' | 'RESERVATION_REQUEST' | 'SALE_ALERT';
+  metadata?: {
+    reservationId?: string;
+    listingId?: string;
+    actionUrl?: string; // Link simulado
+  };
 }
 
 export interface BankInfo {

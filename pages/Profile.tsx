@@ -100,7 +100,7 @@ export const Profile: React.FC = () => {
 
   const handleExtend = (r: Reservation) => {
     if (r.days >= 10) return alert("Limite máximo de 10 dias atingido.");
-    const daysToAdd = prompt("Quantos dias adicionar? (R$ 2,00 por dia)", "1");
+    const daysToAdd = prompt("Quantos dias adicionar? (R$ 1,50 por dia)", "1");
     if (daysToAdd) {
       const days = parseInt(daysToAdd);
       if (days > 0) {
@@ -1019,7 +1019,7 @@ export const Profile: React.FC = () => {
                           <div>
                             <p className="text-white font-bold">{listing?.catalogItem.title}</p>
                             <p className="text-xs text-gray-400">Solicitado por: {buyer?.name}</p>
-                            <p className="text-xs text-gray-500">Valor a receber: R$ 3,00</p>
+                            <p className="text-xs text-gray-500">Valor a receber: R$ 7,00</p>
                           </div>
                           <div className="flex gap-2">
                             <button onClick={() => approveReservation(res.id)} className="bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-2 rounded">Aceitar</button>
@@ -1097,7 +1097,7 @@ export const Profile: React.FC = () => {
                                 onClick={() => handleExtend(res)}
                                 className="border border-purple-500 text-purple-400 hover:bg-purple-900/30 text-xs px-3 py-2 rounded"
                               >
-                                + Estender (R$ 2/dia)
+                                + Estender (R$ 1,50/dia)
                               </button>
                               <Link to={`/listing/${listing?.id}`} className="bg-vinyl-accent text-black font-bold text-xs px-3 py-2 rounded hover:bg-yellow-600">
                                 Comprar Agora

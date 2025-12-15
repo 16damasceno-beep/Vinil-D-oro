@@ -27,7 +27,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, lis
   const transactionId = listing.id.toUpperCase().replace('L-', 'TRX-');
   const shippingCost = listing.finalShippingCost || 0;
   const totalPrice = listing.finalTotalPrice || listing.price;
-  const serviceFee = listing.price * 0.05; // Fee only on product
+  
+  // UPDATED FEE TO 7%
+  const serviceFee = listing.price * 0.07; // Fee only on product
   const sellerReceive = (listing.price - serviceFee) + shippingCost;
 
   // Masking Logic: Show 1st char and last 3 chars. Hide rest.
@@ -147,7 +149,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, lis
                      </div>
                   )}
                   <div className="flex justify-between text-red-600">
-                    <span>Taxa de Serviço (5% sobre Prod.)</span>
+                    <span>Taxa de Serviço (7% sobre Prod.)</span>
                     <span>- R$ {serviceFee.toFixed(2)}</span>
                   </div>
                   <div className="border-t border-gray-400 my-2"></div>

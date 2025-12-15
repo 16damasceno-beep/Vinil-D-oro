@@ -9,11 +9,13 @@ import { SellVinyl } from './pages/SellVinyl';
 import { ListingDetails } from './pages/ListingDetails';
 import { Profile } from './pages/Profile';
 import { Login } from './pages/Login';
+import { ResetPassword } from './pages/ResetPassword';
 import { Favorites } from './pages/Favorites';
 import { EditListing } from './pages/EditListing';
 import { ActivitySidebar } from './components/ActivitySidebar';
 import { Calculator } from './components/Calculator';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { WelcomeModal } from './components/WelcomeModal';
 
 const App: React.FC = () => {
   return (
@@ -33,6 +35,7 @@ const App: React.FC = () => {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/favorites" element={<Favorites />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/admin" element={<AdminDashboard />} />
               </Routes>
             </div>
@@ -43,6 +46,7 @@ const App: React.FC = () => {
           
           {/* Utilities */}
           <Calculator />
+          <WelcomeModal />
         </div>
       </Router>
     </StoreProvider>
