@@ -9,6 +9,9 @@ export const ListingDetails: React.FC = () => {
   const navigate = useNavigate();
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<'PICKUP' | 'SHIPPING' | null>(null);
+  
+  // State for currently selected image in gallery
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const listing = getEnrichedListings().find(l => l.id === id);
   const seller = listing ? users.find(u => u.id === listing.sellerId) : null;
@@ -16,6 +19,45 @@ export const ListingDetails: React.FC = () => {
   if (!listing || !seller) {
     return <div className="text-white text-center mt-20">Anúncio não encontrado.</div>;
   }
+
+  // Construct full image gallery: Main Catalog Cover is treated as index -1 logically, or userImages[0]
+  // Logic update: userImages[0] IS typically the catalog cover IF no user photos were added.
+  // But if user photos added, userImages are just the user photos.
+  // Let's combine them for display: [CatalogCover, ...UserImages] or just UserImages if they already include catalog cover logic?
+  // In SellVinyl.tsx, if userImages is empty, we use [catalogCover]. If not empty, it is ONLY user photos.
+  // So we should verify:
+  
+  const displayImages = [listing.catalogItem.coverUrl];
+  // Check if userImages[0] is different from catalog cover, if so, append all user images
+  if (listing.userImages.length > 0 && listing.userImages[0] !== listing.catalogItem.coverUrl) {
+    displayImages.push(...listing.userImages);
+  } else if (listing.userImages.length > 1) {
+    // Case where first image IS catalog cover but there are more
+    displayImages.push(...listing.userImages.slice(1));
+  }
+  
+  // Note: displayImages[0] is always Catalog Cover.
+  // displayImages[1...n] are User Photos.
+  
+  // Current Main Image Logic
+  const currentMainImage = activeImageIndex === 0 
+    ? (listing.userImages.length > 0 && listing.userImages[0] !== listing.catalogItem.coverUrl ? listing.userImages[0] : listing.catalogItem.coverUrl) // Default logic was messy
+    : displayImages[activeImageIndex] || listing.catalogItem.coverUrl;
+
+  // Let's simplify:
+  // We want to show ALL unique images available.
+  // 1. Catalog Cover
+  // 2. Any User Uploaded Images
+  // We will build a unified array for the gallery.
+  
+  const galleryImages = [listing.catalogItem.coverUrl];
+  listing.userImages.forEach(img => {
+    if (img !== listing.catalogItem.coverUrl) {
+      galleryImages.push(img);
+    }
+  });
+
+  const mainImage = galleryImages[activeImageIndex];
 
   const isSold = listing.status !== 'DISPONÍVEL' && listing.status !== 'RESERVADO';
   const isReserved = listing.status === 'RESERVADO';
@@ -170,8 +212,8 @@ export const ListingDetails: React.FC = () => {
         
         {/* Images */}
         <div className="space-y-4 relative">
-          <div className="aspect-square w-full rounded-lg overflow-hidden border border-gray-700 shadow-2xl">
-            <img src={listing.userImages[0] || listing.catalogItem.coverUrl} alt="Main" className="w-full h-full object-cover" />
+          <div className="aspect-square w-full rounded-lg overflow-hidden border border-gray-700 shadow-2xl bg-gray-800">
+            <img src={mainImage} alt="Main" className="w-full h-full object-contain" />
           </div>
           
           {/* Favorite Button Overlay */}
@@ -185,14 +227,14 @@ export const ListingDetails: React.FC = () => {
              </svg>
           </button>
 
-          <div className="grid grid-cols-4 gap-4">
-             {/* Show Catalog Cover */}
-             <div className="aspect-square rounded overflow-hidden border border-gray-700 opacity-70 hover:opacity-100 cursor-pointer" title="Capa do Catálogo">
-                <img src={listing.catalogItem.coverUrl} className="w-full h-full object-cover" />
-             </div>
-             {/* Show user images if any additional */}
-             {listing.userImages.slice(1).map((img, idx) => (
-               <div key={idx} className="aspect-square rounded overflow-hidden border border-gray-700">
+          {/* Thumbnails Grid */}
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+             {galleryImages.map((img, idx) => (
+               <div 
+                  key={idx} 
+                  onClick={() => setActiveImageIndex(idx)}
+                  className={`aspect-square rounded overflow-hidden border cursor-pointer transition ${activeImageIndex === idx ? 'border-vinyl-accent opacity-100 ring-2 ring-vinyl-accent/50' : 'border-gray-700 opacity-60 hover:opacity-100'}`}
+               >
                   <img src={img} className="w-full h-full object-cover" />
                </div>
              ))}

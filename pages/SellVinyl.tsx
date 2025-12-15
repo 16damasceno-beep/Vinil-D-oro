@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { CatalogItem, Genre, VinylCondition, Listing } from '../types';
@@ -42,6 +41,7 @@ export const SellVinyl: React.FC = () => {
   const [condition, setCondition] = useState<VinylCondition>(VinylCondition.VG);
   const [description, setDescription] = useState('');
   const [imageFiles, setImageFiles] = useState<FileList | null>(null);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
   
   // Delivery Options
   const [allowPickup, setAllowPickup] = useState(true);
@@ -152,13 +152,30 @@ export const SellVinyl: React.FC = () => {
     setStep(2);
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      if (e.target.files.length > 5) {
+        alert("Máximo de 5 fotos permitido.");
+        e.target.value = ''; // Reset input
+        setImageFiles(null);
+        setPreviewImages([]);
+        return;
+      }
+      setImageFiles(e.target.files);
+      
+      // Generate previews
+      const previews = Array.from(e.target.files).map(file => URL.createObjectURL(file));
+      setPreviewImages(previews);
+    }
+  };
+
   const handlePublish = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCatalogItem || !price) return;
     if (!allowPickup && !allowShipping) return alert("Selecione pelo menos uma forma de entrega.");
 
     const mockImageUrls = imageFiles && imageFiles.length > 0 
-      ? Array.from(imageFiles).map((file) => URL.createObjectURL(file as Blob))
+      ? Array.from(imageFiles).map((file) => URL.createObjectURL(file as any))
       : [selectedCatalogItem.coverUrl];
 
     const newListing: Listing = {
@@ -445,20 +462,36 @@ export const SellVinyl: React.FC = () => {
                </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Fotos Reais do Produto</label>
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*"
-                onChange={e => setImageFiles(e.target.files)}
-                className="block w-full text-sm text-gray-400
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-vinyl-groove file:text-white
-                  hover:file:bg-gray-700"
-              />
+            <div className="bg-gray-800 p-4 rounded border border-gray-700">
+              <label className="block text-sm font-bold text-white mb-2">Fotos Reais do Produto</label>
+              <p className="text-xs text-gray-400 mb-3">Adicione fotos do seu item específico (riscos, detalhes da capa). A capa original do álbum será mantida como referência.</p>
+              
+              <div className="flex flex-col gap-4">
+                 <label className="cursor-pointer bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm text-center border border-gray-600 transition w-full md:w-auto">
+                    <span>+ Selecionar Fotos (Máx 5)</span>
+                    <input 
+                      type="file" 
+                      multiple 
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                 </label>
+
+                 {/* Preview Grid */}
+                 {previewImages.length > 0 && (
+                   <div className="flex flex-wrap gap-3 mt-2">
+                     {previewImages.map((src, idx) => (
+                       <div key={idx} className="relative w-24 h-24 border border-gray-600 rounded overflow-hidden shadow-sm group">
+                          <img src={src} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-xs text-white">
+                             Foto {idx + 1}
+                          </div>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+              </div>
             </div>
 
             <div>
