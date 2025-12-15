@@ -32,11 +32,14 @@ export const Profile: React.FC = () => {
   
   // Financial Form States
   const [bankForm, setBankForm] = useState<Partial<BankInfo>>(currentUser?.bankInfo || { accountType: 'CORRENTE' });
+  const [isEditingBank, setIsEditingBank] = useState(false); // Controls visibility of bank form vs masked view
   const [cardForm, setCardForm] = useState({ holderName: '', number: '', expiry: '', cvv: '' });
   
-  // Deposit State
+  // Deposit State & Flow
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
+  const [depositStep, setDepositStep] = useState<'AMOUNT' | 'METHOD' | 'PROCESSING' | 'SUCCESS'>('AMOUNT');
+  const [selectedDepositMethod, setSelectedDepositMethod] = useState<string>('');
 
   // Modal State
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -117,6 +120,11 @@ export const Profile: React.FC = () => {
     return `${first}**.***.**${last3}`;
   };
 
+  const maskBankData = (data: string) => {
+    if (!data || data.length < 4) return '****';
+    return '****' + data.slice(-4);
+  }
+
   // Financial Handlers
   const handleSaveBankInfo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +132,7 @@ export const Profile: React.FC = () => {
       return alert("Preencha todos os dados bancários.");
     }
     updateUserFinancials(bankForm as BankInfo, undefined);
+    setIsEditingBank(false); // Switch back to view mode
     alert("Dados bancários salvos com sucesso!");
   };
 
@@ -147,14 +156,33 @@ export const Profile: React.FC = () => {
     alert("Cartão adicionado com sucesso!");
   };
 
-  const handleDeposit = () => {
+  // Deposit Flow Handlers
+  const openDepositModal = () => {
+    setDepositAmount('');
+    setDepositStep('AMOUNT');
+    setSelectedDepositMethod('');
+    setIsDepositModalOpen(true);
+  };
+
+  const handleDepositNext = () => {
     const amount = parseFloat(depositAmount);
     if (isNaN(amount) || amount <= 0) {
       return alert("Digite um valor válido.");
     }
-    depositFunds(amount);
-    setIsDepositModalOpen(false);
-    setDepositAmount('');
+    setDepositStep('METHOD');
+  };
+
+  const handleDepositProcess = () => {
+    if (!selectedDepositMethod) return alert("Selecione um método de pagamento.");
+    
+    setDepositStep('PROCESSING');
+    
+    // Simulate Bank/Card Processing Time
+    setTimeout(() => {
+      const amount = parseFloat(depositAmount);
+      depositFunds(amount);
+      setDepositStep('SUCCESS');
+    }, 2500);
   };
 
   const openReviewModal = (listing: EnrichedListing, type: 'BUYER' | 'SELLER') => {
@@ -241,37 +269,104 @@ export const Profile: React.FC = () => {
         />
       )}
 
-      {/* Deposit Modal */}
+      {/* Deposit Modal (New Payment Flow) */}
       {isDepositModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]">
-           <div className="bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full border border-gray-700 p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-white">Adicionar Saldo</h3>
-                <button onClick={() => setIsDepositModalOpen(false)} className="text-gray-400 hover:text-white">✕</button>
-              </div>
+           <div className="bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full border border-gray-700 p-6 relative">
+              <button onClick={() => setIsDepositModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
               
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-400 mb-1">Valor (R$)</label>
-                <input 
-                  type="number" 
-                  step="0.01"
-                  value={depositAmount}
-                  onChange={e => setDepositAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full bg-gray-900 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none text-xl font-bold"
-                />
-              </div>
+              <h3 className="text-lg font-bold text-white mb-6 border-b border-gray-700 pb-2">
+                {depositStep === 'SUCCESS' ? 'Recarga Concluída' : 'Adicionar Saldo'}
+              </h3>
+              
+              {/* Step 1: Amount */}
+              {depositStep === 'AMOUNT' && (
+                <div className="animate-[fadeIn_0.3s]">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Qual valor deseja adicionar?</label>
+                  <div className="relative mb-6">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={depositAmount}
+                      onChange={e => setDepositAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full bg-gray-900 text-white p-3 pl-10 border border-gray-700 rounded focus:border-vinyl-accent outline-none text-xl font-bold"
+                      autoFocus
+                    />
+                  </div>
+                  <button 
+                    onClick={handleDepositNext}
+                    className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded transition"
+                  >
+                    Continuar para Pagamento
+                  </button>
+                </div>
+              )}
 
-              <div className="bg-gray-900 p-3 rounded mb-6 text-sm text-gray-400">
-                <p>Simulação: Este valor será creditado na sua carteira virtual imediatamente para uso no site.</p>
-              </div>
+              {/* Step 2: Payment Method */}
+              {depositStep === 'METHOD' && (
+                <div className="animate-[fadeIn_0.3s]">
+                  <p className="text-gray-400 text-sm mb-4">Valor a creditar: <span className="text-white font-bold">R$ {parseFloat(depositAmount).toFixed(2)}</span></p>
+                  
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-2">Selecione a forma de pagamento</p>
+                  <div className="space-y-2 mb-6">
+                    <button 
+                      onClick={() => setSelectedDepositMethod('PIX')}
+                      className={`w-full p-3 rounded border text-left flex items-center gap-3 transition ${selectedDepositMethod === 'PIX' ? 'bg-vinyl-accent/10 border-vinyl-accent text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                    >
+                      <span>💠</span>
+                      <div>
+                        <p className="font-bold text-sm">PIX (Instantâneo)</p>
+                      </div>
+                    </button>
 
-              <button 
-                onClick={handleDeposit}
-                className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded transition"
-              >
-                Confirmar Depósito
-              </button>
+                    {currentUser.savedPaymentMethods && currentUser.savedPaymentMethods.map(pm => (
+                      <button 
+                        key={pm.id}
+                        onClick={() => setSelectedDepositMethod(pm.id)}
+                        className={`w-full p-3 rounded border text-left flex items-center gap-3 transition ${selectedDepositMethod === pm.id ? 'bg-vinyl-accent/10 border-vinyl-accent text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                      >
+                        <span>💳</span>
+                        <div>
+                          <p className="font-bold text-sm">{pm.brand} •••• {pm.last4}</p>
+                          <p className="text-[10px]">Crédito</p>
+                        </div>
+                      </button>
+                    ))}
+                    
+                    {(!currentUser.savedPaymentMethods || currentUser.savedPaymentMethods.length === 0) && (
+                       <p className="text-xs text-yellow-600 text-center bg-yellow-900/10 p-2 rounded">
+                         Cadastre um cartão na aba Financeiro para usar crédito.
+                       </p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button onClick={() => setDepositStep('AMOUNT')} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded">Voltar</button>
+                    <button onClick={handleDepositProcess} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded">Pagar e Creditar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Processing */}
+              {depositStep === 'PROCESSING' && (
+                <div className="text-center py-8 animate-[fadeIn_0.3s]">
+                   <div className="w-16 h-16 border-4 border-gray-700 border-t-vinyl-accent rounded-full animate-spin mx-auto mb-4"></div>
+                   <p className="text-white font-bold">Processando Pagamento...</p>
+                   <p className="text-gray-500 text-xs mt-2">Validando transação bancária segura.</p>
+                </div>
+              )}
+
+              {/* Step 4: Success */}
+              {depositStep === 'SUCCESS' && (
+                <div className="text-center py-4 animate-[fadeIn_0.3s]">
+                   <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg shadow-green-900/50">✓</div>
+                   <h4 className="text-white font-bold text-lg mb-1">Pagamento Aprovado!</h4>
+                   <p className="text-gray-400 text-sm mb-6">O saldo de <strong>R$ {parseFloat(depositAmount).toFixed(2)}</strong> já está disponível na sua carteira.</p>
+                   <button onClick={() => setIsDepositModalOpen(false)} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded">Fechar</button>
+                </div>
+              )}
            </div>
         </div>
       )}
@@ -307,7 +402,7 @@ export const Profile: React.FC = () => {
                <span className="text-vinyl-gold font-bold text-2xl">R$ {currentUser.walletBalance.toFixed(2)}</span>
              </div>
              <button 
-               onClick={() => setIsDepositModalOpen(true)}
+               onClick={openDepositModal}
                className="mt-3 text-xs bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded border border-gray-600 font-bold transition"
              >
                + Adicionar Saldo
@@ -363,64 +458,99 @@ export const Profile: React.FC = () => {
                 <div>
                   <h2 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Dados de Recebimento (Vendedor)</h2>
                   <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                    <p className="text-sm text-gray-400 mb-4">Informe sua conta bancária e chave PIX para receber os valores das suas vendas.</p>
+                    <div className="flex justify-between items-start mb-4">
+                       <p className="text-sm text-gray-400">Dados bancários para recebimento de vendas.</p>
+                       {currentUser.bankInfo && !isEditingBank && (
+                         <button onClick={() => setIsEditingBank(true)} className="text-xs text-vinyl-accent underline">
+                           Editar
+                         </button>
+                       )}
+                    </div>
                     
-                    <form onSubmit={handleSaveBankInfo} className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Banco</label>
-                        <input 
-                          type="text" 
-                          value={bankForm.bankName || ''}
-                          onChange={e => setBankForm({...bankForm, bankName: e.target.value})}
-                          className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                          placeholder="Ex: Nubank, Bradesco..."
-                        />
+                    {currentUser.bankInfo && !isEditingBank ? (
+                      // Masked View
+                      <div className="space-y-3 bg-gray-900 p-4 rounded border border-gray-700">
+                         <div className="flex justify-between border-b border-gray-800 pb-2">
+                           <span className="text-gray-500 text-xs">Banco</span>
+                           <span className="text-white text-sm font-bold">{currentUser.bankInfo.bankName}</span>
+                         </div>
+                         <div className="flex justify-between border-b border-gray-800 pb-2">
+                           <span className="text-gray-500 text-xs">Agência</span>
+                           <span className="text-white text-sm font-bold">{maskBankData(currentUser.bankInfo.agency)}</span>
+                         </div>
+                         <div className="flex justify-between border-b border-gray-800 pb-2">
+                           <span className="text-gray-500 text-xs">Conta</span>
+                           <span className="text-white text-sm font-bold">{maskBankData(currentUser.bankInfo.accountNumber)}</span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span className="text-gray-500 text-xs">Chave Pix</span>
+                           <span className="text-white text-sm font-bold">{maskDocument(currentUser.bankInfo.pixKey)}</span>
+                         </div>
                       </div>
-                      <div className="flex gap-4">
-                        <div className="flex-1">
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Agência</label>
+                    ) : (
+                      // Form View
+                      <form onSubmit={handleSaveBankInfo} className="space-y-4 animate-[fadeIn_0.2s]">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">Banco</label>
                           <input 
                             type="text" 
-                            value={bankForm.agency || ''}
-                            onChange={e => setBankForm({...bankForm, agency: e.target.value})}
+                            value={bankForm.bankName || ''}
+                            onChange={e => setBankForm({...bankForm, bankName: e.target.value})}
                             className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
+                            placeholder="Ex: Nubank, Bradesco..."
                           />
                         </div>
-                        <div className="flex-1">
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Conta (com dígito)</label>
+                        <div className="flex gap-4">
+                          <div className="flex-1">
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Agência</label>
+                            <input 
+                              type="text" 
+                              value={bankForm.agency || ''}
+                              onChange={e => setBankForm({...bankForm, agency: e.target.value})}
+                              className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Conta (com dígito)</label>
+                            <input 
+                              type="text" 
+                              value={bankForm.accountNumber || ''}
+                              onChange={e => setBankForm({...bankForm, accountNumber: e.target.value})}
+                              className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">Tipo de Conta</label>
+                          <select 
+                            value={bankForm.accountType || 'CORRENTE'}
+                            onChange={e => setBankForm({...bankForm, accountType: e.target.value as any})}
+                            className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
+                          >
+                            <option value="CORRENTE">Conta Corrente</option>
+                            <option value="POUPANCA">Conta Poupança</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-vinyl-accent mb-1">Chave PIX (Principal)</label>
                           <input 
                             type="text" 
-                            value={bankForm.accountNumber || ''}
-                            onChange={e => setBankForm({...bankForm, accountNumber: e.target.value})}
+                            value={bankForm.pixKey || ''}
+                            onChange={e => setBankForm({...bankForm, pixKey: e.target.value})}
                             className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
+                            placeholder="CPF, Email, Telefone..."
                           />
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Tipo de Conta</label>
-                        <select 
-                          value={bankForm.accountType || 'CORRENTE'}
-                          onChange={e => setBankForm({...bankForm, accountType: e.target.value as any})}
-                          className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                        >
-                          <option value="CORRENTE">Conta Corrente</option>
-                          <option value="POUPANCA">Conta Poupança</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-vinyl-accent mb-1">Chave PIX (Principal)</label>
-                        <input 
-                          type="text" 
-                          value={bankForm.pixKey || ''}
-                          onChange={e => setBankForm({...bankForm, pixKey: e.target.value})}
-                          className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                          placeholder="CPF, Email, Telefone..."
-                        />
-                      </div>
-                      <button type="submit" className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded mt-2">
-                        Salvar Dados Bancários
-                      </button>
-                    </form>
+                        <div className="flex gap-2 mt-2">
+                           {isEditingBank && (
+                             <button type="button" onClick={() => setIsEditingBank(false)} className="flex-1 bg-gray-700 text-white font-bold py-2 rounded">Cancelar</button>
+                           )}
+                           <button type="submit" className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded">
+                             Salvar Dados Bancários
+                           </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
                 </div>
               )}
@@ -440,13 +570,6 @@ export const Profile: React.FC = () => {
                         <div>
                           <p className="text-white text-sm font-bold">PIX</p>
                           <p className="text-xs text-gray-500">Pagamento instantâneo disponível no checkout.</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-3 bg-gray-900 rounded border border-gray-700 opacity-75">
-                        <span className="text-xl">📄</span>
-                        <div>
-                          <p className="text-white text-sm font-bold">Boleto Bancário</p>
-                          <p className="text-xs text-gray-500">Geração disponível no checkout.</p>
                         </div>
                       </div>
 
