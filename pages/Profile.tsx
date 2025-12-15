@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { useNavigate, Link } from 'react-router-dom';
@@ -21,7 +22,8 @@ export const Profile: React.FC = () => {
     cancelReservation,
     extendReservation,
     updateUserFinancials,
-    depositFunds
+    depositFunds,
+    deleteListing
   } = useStore();
   
   const navigate = useNavigate();
@@ -82,6 +84,12 @@ export const Profile: React.FC = () => {
     if(confirm("Confirmar venda fora do site? Isso removerá o item da lista de disponíveis e não haverá cobrança de taxa de serviço.")) {
       markAsSoldOutside(id);
     }
+  };
+  
+  const handleDelete = (id: string) => {
+     if(confirm("Tem certeza que deseja excluir este anúncio? Esta ação não pode ser desfeita.")) {
+         deleteListing(id);
+     }
   };
 
   const handleExtend = (r: Reservation) => {
@@ -569,12 +577,26 @@ export const Profile: React.FC = () => {
                       {listing.status === 'DISPONÍVEL' && (
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
                            <p className="text-sm text-gray-400">Anúncio ativo e visível para compradores.</p>
-                           <button 
-                             onClick={() => handleSoldOutside(listing.id)}
-                             className="text-xs text-gray-400 hover:text-white border border-gray-600 hover:border-white px-3 py-1 rounded transition"
-                           >
-                             Marcar como Vendido Fora
-                           </button>
+                           <div className="flex gap-2">
+                             <button 
+                               onClick={() => navigate(`/edit/${listing.id}`)}
+                               className="text-xs text-blue-400 hover:text-white border border-blue-900 hover:border-blue-400 px-3 py-1 rounded transition"
+                             >
+                               Editar
+                             </button>
+                             <button 
+                               onClick={() => handleDelete(listing.id)}
+                               className="text-xs text-red-400 hover:text-white border border-red-900 hover:border-red-400 px-3 py-1 rounded transition"
+                             >
+                               Excluir
+                             </button>
+                             <button 
+                               onClick={() => handleSoldOutside(listing.id)}
+                               className="text-xs text-gray-400 hover:text-white border border-gray-600 hover:border-white px-3 py-1 rounded transition"
+                             >
+                               Marcar como Vendido Fora
+                             </button>
+                           </div>
                         </div>
                       )}
 

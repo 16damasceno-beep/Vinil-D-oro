@@ -14,6 +14,7 @@ interface StoreContextType {
   logout: () => void;
   addToCatalog: (item: CatalogItem) => void;
   addListing: (listing: Listing) => void;
+  updateListing: (listing: Listing) => void; // Nova função
   buyListing: (listingId: string, method: 'PICKUP' | 'SHIPPING') => void;
   markAsShipped: (listingId: string, trackingCode: string) => void;
   confirmReceipt: (listingId: string) => void;
@@ -322,6 +323,10 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const addListing = (listing: Listing) => {
     setListings([...listings, listing]);
+  };
+
+  const updateListing = (updatedListing: Listing) => {
+    setListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
   };
 
   const updateUserFinancials = (bankInfo?: BankInfo, paymentMethod?: PaymentMethod) => {
@@ -771,7 +776,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return reviews.filter(r => r.toUserId === userId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   };
 
-  // --- ADMIN FUNCTIONS ---
+  // --- ADMIN & DELETE FUNCTIONS ---
   const deleteUser = (userId: string) => {
     setUsers(prev => prev.filter(u => u.id !== userId));
     // Also remove listings from this user to clean up
@@ -781,7 +786,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const deleteListing = (listingId: string) => {
     setListings(prev => prev.filter(l => l.id !== listingId));
-    alert("Anúncio removido.");
   };
 
   return (
@@ -797,6 +801,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       logout,
       addToCatalog,
       addListing,
+      updateListing,
       buyListing,
       markAsShipped,
       confirmReceipt,

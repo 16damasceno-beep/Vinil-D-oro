@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { StoreProvider } from './store';
@@ -9,6 +10,7 @@ import { ListingDetails } from './pages/ListingDetails';
 import { Profile } from './pages/Profile';
 import { Login } from './pages/Login';
 import { Favorites } from './pages/Favorites';
+import { EditListing } from './pages/EditListing';
 import { ActivitySidebar } from './components/ActivitySidebar';
 import { Calculator } from './components/Calculator';
 import { AdminDashboard } from './pages/AdminDashboard';
@@ -26,6 +28,7 @@ const App: React.FC = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/catalog" element={<Catalog />} />
                 <Route path="/sell" element={<SellVinyl />} />
+                <Route path="/edit/:id" element={<EditListing />} />
                 <Route path="/listing/:id" element={<ListingDetails />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/favorites" element={<Favorites />} />
