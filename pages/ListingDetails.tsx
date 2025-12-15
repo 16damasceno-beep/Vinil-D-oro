@@ -92,7 +92,13 @@ export const ListingDetails: React.FC = () => {
     }
     if (listing.sellerId === currentUser.id) return alert("Você não pode reservar seu próprio item.");
 
-    if (confirm("Solicitar reserva por 5 dias?\n\nCusto: R$ 10,00\nO vendedor precisa aprovar a solicitação.")) {
+    let costMsg = "R$ 10,00";
+    if (isEquipment) {
+      const eqCost = listing.price * 0.10;
+      costMsg = `R$ ${eqCost.toFixed(2)} (10% do valor)`;
+    }
+
+    if (confirm(`Solicitar reserva por 5 dias?\n\nTipo: ${isEquipment ? 'Equipamento' : 'Padrão'}\nCusto estimado: ${costMsg}\n\nO valor será debitado da sua carteira assim que o vendedor aceitar.`)) {
       requestReservation(listing.id);
     }
   };
@@ -289,7 +295,7 @@ export const ListingDetails: React.FC = () => {
                   onClick={handleReservation}
                   className="w-full py-3 rounded-md font-bold text-md border border-purple-500 text-purple-400 hover:bg-purple-900/30 transition flex items-center justify-center gap-2"
                 >
-                  <span>Reservar (R$ 10,00 / 5 Dias)</span>
+                  <span>Reservar ({isEquipment ? `10% Valor (R$ ${(listing.price * 0.1).toFixed(2)})` : 'R$ 10,00'} / 5 Dias)</span>
                 </button>
               )}
             </div>

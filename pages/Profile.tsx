@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { useNavigate, Link } from 'react-router-dom';
-import { EnrichedListing, Review, Reservation, BankInfo, PaymentMethod } from '../types';
+import { EnrichedListing, Review, Reservation, BankInfo, PaymentMethod, ItemType } from '../types';
 import { ReviewModal } from '../components/ReviewModal';
 import { ReceiptModal } from '../components/ReceiptModal';
 
@@ -23,7 +23,8 @@ export const Profile: React.FC = () => {
     extendReservation,
     updateUserFinancials,
     depositFunds,
-    deleteListing
+    deleteListing,
+    catalog // Need catalog to check ItemType in reservations
   } = useStore();
   
   const navigate = useNavigate();
@@ -98,9 +99,10 @@ export const Profile: React.FC = () => {
      }
   };
 
-  const handleExtend = (r: Reservation) => {
+  const handleExtend = (r: Reservation, isEquipment: boolean) => {
     if (r.days >= 10) return alert("Limite máximo de 10 dias atingido.");
-    const daysToAdd = prompt("Quantos dias adicionar? (R$ 1,50 por dia)", "1");
+    const cost = isEquipment ? "R$ 5,00" : "R$ 1,50";
+    const daysToAdd = prompt(`Quantos dias adicionar? (${cost} por dia)`, "1");
     if (daysToAdd) {
       const days = parseInt(daysToAdd);
       if (days > 0) {
@@ -108,7 +110,10 @@ export const Profile: React.FC = () => {
            alert(`Você só pode adicionar mais ${10 - r.days} dias.`);
            return;
          }
-         extendReservation(r.id, days);
+         // Debit Check warning logic handled inside store but good to alert here
+         if(confirm(`Confirmar extensão por ${days} dias? O valor será debitado da sua carteira.`)) {
+            extendReservation(r.id, days);
+         }
       }
     }
   };
@@ -1013,16 +1018,24 @@ export const Profile: React.FC = () => {
                   <div className="space-y-3 mb-6">
                     {myIncomingReservations.map(res => {
                       const listing = listings.find(l => l.id === res.listingId);
+                      const catalogItem = catalog.find(c => c.id === listing?.catalogItemId); // Lookup directly from catalog
                       const buyer = users.find(u => u.id === res.buyerId);
+                      
+                      let estimatedReturn = 7.00;
+                      if (catalogItem?.itemType === ItemType.EQUIPMENT && listing) {
+                         estimatedReturn = listing.price * 0.07;
+                      }
+
                       return (
-                        <div key={res.id} className="bg-gray-800 p-4 rounded border border-purple-900/50 flex justify-between items-center">
+                        <div key={res.id} className="bg-gray-800 p-4 rounded border border-purple-900/50 flex flex-col sm:flex-row justify-between items-center gap-4">
                           <div>
-                            <p className="text-white font-bold">{listing?.catalogItem.title}</p>
+                            <p className="text-white font-bold">{catalogItem?.title}</p>
                             <p className="text-xs text-gray-400">Solicitado por: {buyer?.name}</p>
-                            <p className="text-xs text-gray-500">Valor a receber: R$ 7,00</p>
+                            <p className="text-xs text-green-400 font-bold">Valor a receber: R$ {estimatedReturn.toFixed(2)}</p>
+                            {catalogItem?.itemType === ItemType.EQUIPMENT && <span className="text-[10px] bg-blue-900 text-white px-1 rounded">Equipamento</span>}
                           </div>
                           <div className="flex gap-2">
-                            <button onClick={() => approveReservation(res.id)} className="bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-2 rounded">Aceitar</button>
+                            <button onClick={() => approveReservation(res.id)} className="bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-2 rounded">Aceitar (Creditar R$ {estimatedReturn.toFixed(2)})</button>
                             <button onClick={() => rejectReservation(res.id)} className="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-2 rounded">Recusar</button>
                           </div>
                         </div>
@@ -1069,6 +1082,9 @@ export const Profile: React.FC = () => {
                 <div className="space-y-4">
                   {myRequestedReservations.map(res => {
                     const listing = listings.find(l => l.id === res.listingId);
+                    const isEquipment = listing?.catalogItem.itemType === ItemType.EQUIPMENT;
+                    const extensionCost = isEquipment ? "R$ 5,00" : "R$ 1,50";
+
                     return (
                       <div key={res.id} className="bg-gray-800 p-4 rounded border border-gray-700 flex flex-col sm:flex-row gap-4 justify-between items-center">
                          <div className="flex gap-4 items-center">
@@ -1094,10 +1110,10 @@ export const Profile: React.FC = () => {
                          {res.status === 'APROVADA' && (
                            <div className="flex gap-2">
                               <button 
-                                onClick={() => handleExtend(res)}
+                                onClick={() => handleExtend(res, isEquipment)}
                                 className="border border-purple-500 text-purple-400 hover:bg-purple-900/30 text-xs px-3 py-2 rounded"
                               >
-                                + Estender (R$ 1,50/dia)
+                                + Estender ({extensionCost}/dia)
                               </button>
                               <Link to={`/listing/${listing?.id}`} className="bg-vinyl-accent text-black font-bold text-xs px-3 py-2 rounded hover:bg-yellow-600">
                                 Comprar Agora

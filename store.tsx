@@ -452,11 +452,31 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const reservation = reservations.find(r => r.id === reservationId);
     if (!reservation || reservation.status !== 'PENDENTE') return;
 
-    // UPDATE: New Fees
-    // Total: R$ 10.00
-    // Platform Share (30%): R$ 3.00
-    // Seller Share (70%): R$ 7.00
-    const sellerShare = 7.00;
+    const listing = listings.find(l => l.id === reservation.listingId);
+    if (!listing) return;
+    const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
+    if (!catalogItem) return;
+
+    const buyer = users.find(u => u.id === reservation.buyerId);
+    const seller = users.find(u => u.id === reservation.sellerId);
+
+    // --- FINANCIAL RULES START ---
+    let totalCost = 0;
+    let sellerShare = 0;
+    let platformShare = 0;
+
+    if (catalogItem.itemType === ItemType.EQUIPMENT) {
+      // Equipment Rule: 10% Total (7% Seller / 3% Site)
+      totalCost = listing.price * 0.10;
+      sellerShare = listing.price * 0.07;
+      platformShare = listing.price * 0.03;
+    } else {
+      // Standard Rule: R$ 10.00 (70% Seller / 30% Site)
+      totalCost = 10.00;
+      sellerShare = 7.00;
+      platformShare = 3.00;
+    }
+    // --- FINANCIAL RULES END ---
 
     // 1. Update Reservation
     const expiresAt = new Date();
@@ -475,12 +495,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return l;
     }));
 
-    const catalogItem = catalog.find(c => c.id === listings.find(l => l.id === reservation.listingId)!.catalogItemId)!;
-    const buyer = users.find(u => u.id === reservation.buyerId);
-    const seller = users.find(u => u.id === reservation.sellerId);
-
-    // 3. Credit Seller & Remove actionable notification
+    // 3. Process Financials (Debit Buyer, Credit Seller) & Notifications
     setUsers(prev => prev.map(u => {
+      // SELLER LOGIC
       if (u.id === reservation.sellerId) {
         // Mark the specific request notification as read/handled
         const updatedNotifications = u.notifications.map(n => {
@@ -494,16 +511,18 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           ...u, 
           walletBalance: u.walletBalance + sellerShare,
           notifications: [
-            { id: `n-res-app-${Date.now()}`, message: `Reserva aprovada! Você recebeu R$ 7,00.`, read: false, createdAt: new Date().toISOString() },
+            { id: `n-res-app-${Date.now()}`, message: `Reserva aprovada! Você recebeu R$ ${sellerShare.toFixed(2)} (reserva de item).`, read: false, createdAt: new Date().toISOString() },
             ...updatedNotifications
           ]
         };
       }
+      // BUYER LOGIC (Debit immediately)
       if (u.id === reservation.buyerId) {
          return {
            ...u,
+           walletBalance: u.walletBalance - totalCost,
            notifications: [
-             { id: `n-res-buyer-${Date.now()}`, message: `Sua reserva foi aprovada! O item está reservado por 5 dias.`, read: false, createdAt: new Date().toISOString() },
+             { id: `n-res-buyer-${Date.now()}`, message: `Sua reserva foi aprovada! R$ ${totalCost.toFixed(2)} foram debitados. O item está reservado por 5 dias.`, read: false, createdAt: new Date().toISOString() },
              ...u.notifications
            ]
          }
@@ -515,7 +534,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       sendReservationDecisionNotification(buyer, seller, catalogItem, true);
     }
 
-    alert(`Reserva aprovada! O item agora está reservado e R$ 7,00 foram creditados na sua carteira.`);
+    alert(`Reserva aprovada!\n\nRegra (${catalogItem.itemType === ItemType.EQUIPMENT ? 'Equipamento' : 'Padrão'}):\nComprador Debitado: R$ ${totalCost.toFixed(2)}\nVendedor Recebeu: R$ ${sellerShare.toFixed(2)}`);
   };
 
   const rejectReservation = (reservationId: string) => {
@@ -591,18 +610,33 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const reservation = reservations.find(r => r.id === reservationId);
     if (!reservation || !reservation.expiresAt) return;
 
+    const listing = listings.find(l => l.id === reservation.listingId);
+    if (!listing) return;
+    const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
+    if (!catalogItem) return;
+
     if (reservation.days + extraDays > 10) {
       alert("O período total máximo de reserva é de 10 dias.");
       return;
     }
 
-    // UPDATE: New Fees for Extension
-    // Total per day: R$ 1.50
-    // Seller Share per day: R$ 1.00
-    // Platform Share per day: R$ 0.50
-    const costPerDay = 1.50;
+    // --- FINANCIAL RULES EXTENSION START ---
+    let costPerDay = 0;
+    let sellerSharePerDay = 0;
+
+    if (catalogItem.itemType === ItemType.EQUIPMENT) {
+      // Equipment Rule: R$ 5.00/day (3.00 Seller / 2.00 Site)
+      costPerDay = 5.00;
+      sellerSharePerDay = 3.00;
+    } else {
+      // Standard Rule: R$ 1.50/day (1.00 Seller / 0.50 Site)
+      costPerDay = 1.50;
+      sellerSharePerDay = 1.00;
+    }
+
     const totalCost = costPerDay * extraDays;
-    const sellerShare = 1.00 * extraDays;
+    const sellerShare = sellerSharePerDay * extraDays;
+    // --- FINANCIAL RULES EXTENSION END ---
 
     // Update Reservation Date
     const newExpiresAt = new Date(reservation.expiresAt);
@@ -619,7 +653,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return r;
     }));
 
-    // Credit Seller
+    // Credit Seller & Debit Buyer
     setUsers(prev => prev.map(u => {
       if (u.id === reservation.sellerId) {
         return { 
@@ -631,10 +665,20 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           ]
         };
       }
+      if (u.id === reservation.buyerId) {
+        return {
+          ...u,
+          walletBalance: u.walletBalance - totalCost,
+          notifications: [
+            { id: `n-res-ext-buy-${Date.now()}`, message: `Você estendeu a reserva por +${extraDays} dias. R$ ${totalCost.toFixed(2)} debitados.`, read: false, createdAt: new Date().toISOString() },
+            ...u.notifications
+          ]
+        };
+      }
       return u;
     }));
 
-    alert(`Reserva estendida! Taxa de R$ ${totalCost.toFixed(2)} simulada.`);
+    alert(`Reserva estendida!\n\nValor debitado: R$ ${totalCost.toFixed(2)}`);
   };
 
   // --- RESERVATION LOGIC END ---
