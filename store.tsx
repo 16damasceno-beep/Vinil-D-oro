@@ -377,7 +377,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       buyerId: currentUser.id,
       sellerId: listing.sellerId,
       status: 'PENDENTE',
-      days: 3, // Default request is 3 days
+      days: 5, // Default request is now 5 days
       createdAt: new Date().toISOString()
     };
 
@@ -415,7 +415,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     // 1. Update Reservation
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 3); // +3 days
+    expiresAt.setDate(expiresAt.getDate() + 5); // +5 days
 
     setReservations(prev => prev.map(r => {
       if (r.id === reservationId) {
@@ -446,7 +446,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
          return {
            ...u,
            notifications: [
-             { id: `n-res-buyer-${Date.now()}`, message: `Sua reserva foi aprovada! O item está reservado por 3 dias.`, read: false, createdAt: new Date().toISOString() },
+             { id: `n-res-buyer-${Date.now()}`, message: `Sua reserva foi aprovada! O item está reservado por 5 dias.`, read: false, createdAt: new Date().toISOString() },
              ...u.notifications
            ]
          }
