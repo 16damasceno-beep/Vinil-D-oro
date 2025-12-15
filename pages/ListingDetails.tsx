@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
@@ -186,7 +187,7 @@ export const ListingDetails: React.FC = () => {
 
           <div className="grid grid-cols-4 gap-4">
              {/* Show Catalog Cover */}
-             <div className="aspect-square rounded overflow-hidden border border-gray-700 opacity-70 hover:opacity-100 cursor-pointer">
+             <div className="aspect-square rounded overflow-hidden border border-gray-700 opacity-70 hover:opacity-100 cursor-pointer" title="Capa do Catálogo">
                 <img src={listing.catalogItem.coverUrl} className="w-full h-full object-cover" />
              </div>
              {/* Show user images if any additional */}
@@ -203,7 +204,13 @@ export const ListingDetails: React.FC = () => {
           <div className="mb-6">
             <h1 className="text-4xl font-bold mb-2">{listing.catalogItem.title}</h1>
             <p className="text-xl text-vinyl-accent">{listing.catalogItem.artist}</p>
-            <p className="text-gray-400 mt-1">{listing.catalogItem.genre} • {listing.catalogItem.year}</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+               <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{listing.catalogItem.genre}</span>
+               <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{listing.catalogItem.year}</span>
+               {listing.catalogItem.format && (
+                 <span className="bg-gray-800 text-vinyl-accent px-2 py-1 rounded text-xs border border-gray-700 border-dashed">{listing.catalogItem.format}</span>
+               )}
+            </div>
           </div>
 
           <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-8">
@@ -290,9 +297,27 @@ export const ListingDetails: React.FC = () => {
               <p className="text-gray-300 italic">"{listing.description}"</p>
             </div>
             
-            <div>
-              <h3 className="text-lg font-bold border-b border-gray-700 pb-2 mb-2">Sobre o Álbum</h3>
-              <p className="text-gray-400">{listing.catalogItem.description}</p>
+            {/* Tech Specs Block */}
+            <div className="bg-gray-800 p-4 rounded border border-gray-700">
+              <h3 className="text-lg font-bold border-b border-gray-600 pb-2 mb-3 text-vinyl-accent">Ficha Técnica</h3>
+              <div className="space-y-2 text-sm">
+                 <div className="flex justify-between border-b border-gray-700 pb-1">
+                   <span className="text-gray-400">Gravadora / Selo:</span>
+                   <span className="text-white">{listing.catalogItem.label || 'Não informado'}</span>
+                 </div>
+                 <div className="flex justify-between border-b border-gray-700 pb-1">
+                   <span className="text-gray-400">Formato:</span>
+                   <span className="text-white">{listing.catalogItem.format || 'Vinil'}</span>
+                 </div>
+                 <div className="flex justify-between border-b border-gray-700 pb-1">
+                   <span className="text-gray-400">Ano de Lançamento:</span>
+                   <span className="text-white">{listing.catalogItem.year || '-'}</span>
+                 </div>
+                 <div className="mt-3">
+                    <p className="text-gray-400 text-xs uppercase mb-1">Descrição do Álbum (Catálogo):</p>
+                    <p className="text-gray-300">{listing.catalogItem.description}</p>
+                 </div>
+              </div>
             </div>
           </div>
         </div>

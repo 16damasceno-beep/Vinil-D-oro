@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod } from './types';
 
@@ -47,7 +48,9 @@ const INITIAL_CATALOG: CatalogItem[] = [
     genre: Genre.ROCK,
     year: 1973,
     coverUrl: 'https://picsum.photos/id/20/400/400',
-    description: 'Uma obra-prima do rock progressivo focada em saúde mental, tempo e ganância.'
+    description: 'Uma obra-prima do rock progressivo focada em saúde mental, tempo e ganância.',
+    format: 'Vinil, LP, Album, Gatefold',
+    label: 'Harvest'
   },
   {
     id: 'c2',
@@ -56,7 +59,9 @@ const INITIAL_CATALOG: CatalogItem[] = [
     genre: Genre.JAZZ,
     year: 1959,
     coverUrl: 'https://picsum.photos/id/30/400/400',
-    description: 'O disco de jazz mais vendido de todos os tempos, apresentando composições de jazz modal.'
+    description: 'O disco de jazz mais vendido de todos os tempos, apresentando composições de jazz modal.',
+    format: 'Vinil, LP, Album, Mono',
+    label: 'Columbia'
   },
   {
     id: 'c3',
@@ -65,7 +70,9 @@ const INITIAL_CATALOG: CatalogItem[] = [
     genre: Genre.MPB,
     year: 1974,
     coverUrl: 'https://picsum.photos/id/40/400/400',
-    description: 'Um clássico do samba psicodélico misturando alquimia e violão acústico.'
+    description: 'Um clássico do samba psicodélico misturando alquimia e violão acústico.',
+    format: 'Vinil, LP, Album',
+    label: 'Philips'
   }
 ];
 

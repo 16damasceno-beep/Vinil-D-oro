@@ -79,6 +79,10 @@ export interface CatalogItem {
   coverUrl: string;
   year?: number;
   description?: string;
+  // Discogs Technical Data
+  format?: string; // e.g., "Vinyl, LP, Album"
+  label?: string;  // e.g., "Columbia"
+  discogsId?: number;
 }
 
 export type ListingStatus = 'DISPONÍVEL' | 'RESERVADO' | 'AGUARDANDO_ENVIO' | 'ENVIADO' | 'CONCLUÍDO' | 'VENDIDO_FORA';

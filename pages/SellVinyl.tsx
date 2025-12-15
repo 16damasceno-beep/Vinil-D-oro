@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { CatalogItem, Genre, VinylCondition, Listing } from '../types';
 import { getAlbumDetails } from '../services/geminiService';
+import { searchDiscogs } from '../services/discogsService';
 import { useNavigate } from 'react-router-dom';
 
 export const SellVinyl: React.FC = () => {
@@ -10,11 +12,17 @@ export const SellVinyl: React.FC = () => {
 
   // Step 1: Catalog Selection
   const [step, setStep] = useState<1 | 2>(1);
-  const [mode, setMode] = useState<'SEARCH' | 'MANUAL'>('SEARCH'); // Toggle between Search and Manual
+  const [mode, setMode] = useState<'SEARCH' | 'MANUAL'>('SEARCH');
   
   // Search State
   const [searchTerm, setSearchTerm] = useState('');
-  const [isSearchingAI, setIsSearchingAI] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<CatalogItem[]>([]);
+  const [searchSource, setSearchSource] = useState<'LOCAL' | 'DISCOGS' | 'AI' | null>(null);
+
+  // Discogs Token Management
+  const [discogsToken, setDiscogsToken] = useState(localStorage.getItem('discogs_token') || '');
+  const [showConfig, setShowConfig] = useState(false);
 
   // Manual Entry State
   const [manualForm, setManualForm] = useState({
@@ -22,7 +30,9 @@ export const SellVinyl: React.FC = () => {
     title: '',
     genre: Genre.ROCK,
     year: '',
-    description: ''
+    description: '',
+    format: 'Vinil, LP',
+    label: ''
   });
   const [manualCoverFile, setManualCoverFile] = useState<File | null>(null);
 
@@ -36,7 +46,10 @@ export const SellVinyl: React.FC = () => {
   // Delivery Options
   const [allowPickup, setAllowPickup] = useState(true);
   const [allowShipping, setAllowShipping] = useState(true);
-  // Shipping cost removed from registration as requested
+
+  useEffect(() => {
+    localStorage.setItem('discogs_token', discogsToken);
+  }, [discogsToken]);
 
   if (!currentUser) {
     return <div className="p-8 text-center text-white">Por favor, faça login para vender.</div>;
@@ -44,33 +57,72 @@ export const SellVinyl: React.FC = () => {
 
   // --- Handlers ---
 
-  const handleCatalogSearch = async () => {
-    setIsSearchingAI(true);
-    // 1. Try to find in existing catalog
-    const existing = catalog.find(c => c.title.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    if (existing) {
-       alert("Encontrado localmente! Selecione na lista abaixo.");
+  const handleSearch = async (e?: React.FormEvent) => {
+    if(e) e.preventDefault();
+    if (!searchTerm) return;
+
+    setIsSearching(true);
+    setSearchResults([]);
+    setSearchSource(null);
+
+    // 1. Search Local Catalog first
+    const localMatches = catalog.filter(c => 
+      c.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      c.artist.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (localMatches.length > 0) {
+      setSearchResults(localMatches);
+      setSearchSource('LOCAL');
+      setIsSearching(false);
+      return;
+    }
+
+    // 2. Search Discogs (if token exists)
+    if (discogsToken) {
+      const discogsResults = await searchDiscogs(searchTerm, discogsToken);
+      if (discogsResults.length > 0) {
+        setSearchResults(discogsResults);
+        setSearchSource('DISCOGS');
+        setIsSearching(false);
+        return;
+      }
+    }
+
+    // 3. Fallback to Gemini AI
+    const aiResult = await getAlbumDetails(searchTerm);
+    if (aiResult) {
+       const newItem: CatalogItem = {
+         id: `c-ai-${Date.now()}`,
+         ...aiResult,
+         genre: aiResult.genre as Genre, 
+         coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400`,
+         format: 'Vinil',
+         label: 'Desconhecido'
+       };
+       setSearchResults([newItem]);
+       setSearchSource('AI');
     } else {
-       // 2. Ask Gemini
-       const aiResult = await getAlbumDetails(searchTerm);
-       if (aiResult) {
-         const newItem: CatalogItem = {
-           id: `c-${Date.now()}`,
-           ...aiResult,
-           genre: aiResult.genre as Genre, 
-           coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400` // Mock image for AI result
-         };
-         addToCatalog(newItem);
-         setSelectedCatalogItem(newItem);
-         setStep(2);
-       } else {
-         if(confirm("Não foi possível encontrar detalhes do álbum automaticamente. Deseja cadastrar manualmente?")) {
-            setMode('MANUAL');
-         }
+       if(confirm("Álbum não encontrado. Deseja cadastrar manualmente?")) {
+          setMode('MANUAL');
        }
     }
-    setIsSearchingAI(false);
+    setIsSearching(false);
+  };
+
+  const handleSelectResult = (item: CatalogItem) => {
+    // If it comes from Discogs or AI (not in local catalog yet), add it
+    const exists = catalog.find(c => c.title === item.title && c.artist === item.artist);
+    
+    if (!exists) {
+      // Need to ensure unique ID if coming from external source
+      const newItem = { ...item, id: item.id.startsWith('c-') ? item.id : `c-${Date.now()}` };
+      addToCatalog(newItem);
+      setSelectedCatalogItem(newItem);
+    } else {
+      setSelectedCatalogItem(exists);
+    }
+    setStep(2);
   };
 
   const handleManualCatalogSubmit = (e: React.FormEvent) => {
@@ -79,7 +131,6 @@ export const SellVinyl: React.FC = () => {
       return alert("Preencha os campos obrigatórios do álbum.");
     }
 
-    // Create Object URL for the cover image if uploaded, else random
     const coverUrl = manualCoverFile 
       ? URL.createObjectURL(manualCoverFile)
       : `https://picsum.photos/seed/${manualForm.title}/400/400`;
@@ -91,7 +142,9 @@ export const SellVinyl: React.FC = () => {
       genre: manualForm.genre,
       year: parseInt(manualForm.year),
       description: manualForm.description || 'Cadastrado pelo vendedor.',
-      coverUrl: coverUrl
+      coverUrl: coverUrl,
+      format: manualForm.format,
+      label: manualForm.label
     };
 
     addToCatalog(newItem);
@@ -104,7 +157,6 @@ export const SellVinyl: React.FC = () => {
     if (!selectedCatalogItem || !price) return;
     if (!allowPickup && !allowShipping) return alert("Selecione pelo menos uma forma de entrega.");
 
-    // Process images (Mocking file upload to URL)
     const mockImageUrls = imageFiles && imageFiles.length > 0 
       ? Array.from(imageFiles).map((file) => URL.createObjectURL(file as Blob))
       : [selectedCatalogItem.coverUrl];
@@ -121,144 +173,202 @@ export const SellVinyl: React.FC = () => {
       createdAt: new Date().toISOString(),
       allowPickup,
       allowShipping,
-      shippingCost: undefined // Set as undefined to indicate "To be agreed"
+      shippingCost: undefined 
     };
 
     addListing(newListing);
-    navigate('/'); // Redirect to Home to see the new item
+    navigate('/'); 
   };
-
-  const filteredCatalog = catalog.filter((item) => 
-    item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.artist.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="min-h-screen bg-vinyl-black py-8 px-4">
-      <div className="max-w-3xl mx-auto bg-gray-900 rounded-lg p-6 shadow-xl border border-gray-800">
-        <h1 className="text-2xl font-bold text-white mb-6">Vender seu Vinil</h1>
+      <div className="max-w-4xl mx-auto bg-gray-900 rounded-lg p-6 shadow-xl border border-gray-800">
+        <div className="flex justify-between items-center mb-6">
+           <h1 className="text-2xl font-bold text-white">Vender seu Vinil</h1>
+           {step === 1 && mode === 'SEARCH' && (
+             <button onClick={() => setShowConfig(!showConfig)} className="text-xs text-vinyl-accent underline">
+               Configurar Discogs
+             </button>
+           )}
+        </div>
         
         {step === 1 && (
           <div className="space-y-6">
             
+            {/* Discogs Config */}
+            {showConfig && (
+              <div className="bg-gray-800 p-4 rounded border border-gray-700 animate-[fadeIn_0.3s]">
+                 <label className="block text-xs font-bold text-white mb-2">Token Pessoal do Discogs (Opcional)</label>
+                 <div className="flex gap-2">
+                   <input 
+                     type="text" 
+                     value={discogsToken}
+                     onChange={e => setDiscogsToken(e.target.value)}
+                     placeholder="Cole seu token aqui..."
+                     className="flex-1 bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm"
+                   />
+                   <button onClick={() => setShowConfig(false)} className="bg-gray-700 text-white px-3 py-1 rounded text-xs">Fechar</button>
+                 </div>
+                 <p className="text-[10px] text-gray-500 mt-1">Necessário para buscar metadados avançados na API do Discogs.</p>
+              </div>
+            )}
+
             {/* Toggle Mode */}
             <div className="flex border-b border-gray-700 mb-4">
               <button 
                 onClick={() => setMode('SEARCH')}
                 className={`px-4 py-2 font-medium text-sm ${mode === 'SEARCH' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400'}`}
               >
-                Buscar no Catálogo
+                Buscar (Catálogo / Discogs)
               </button>
               <button 
                 onClick={() => setMode('MANUAL')}
                 className={`px-4 py-2 font-medium text-sm ${mode === 'MANUAL' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400'}`}
               >
-                Cadastrar Novo Álbum
+                Cadastro Manual
               </button>
             </div>
 
             {mode === 'SEARCH' ? (
               <>
-                <p className="text-gray-400">Encontre o álbum em nosso banco de dados ou use a IA.</p>
-                <div className="flex gap-2">
+                <form onSubmit={handleSearch} className="flex gap-2">
                   <input 
                     type="text" 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Buscar por Artista ou Título..."
+                    placeholder="Digite Artista, Álbum ou Código de Barras..."
                     className="flex-1 bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
                   />
                   <button 
-                    onClick={handleCatalogSearch} 
-                    disabled={isSearchingAI}
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded font-medium disabled:opacity-50"
+                    type="submit"
+                    disabled={isSearching}
+                    className="bg-vinyl-accent hover:bg-yellow-600 text-black px-6 rounded font-bold disabled:opacity-50"
                   >
-                    {isSearchingAI ? 'Perguntando à IA...' : 'IA Buscar'}
+                    {isSearching ? 'Buscando...' : 'Buscar'}
                   </button>
-                </div>
+                </form>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-96 overflow-y-auto mt-4">
-                  {filteredCatalog.map(item => (
-                    <div 
-                      key={item.id} 
-                      onClick={() => { setSelectedCatalogItem(item); setStep(2); }}
-                      className="cursor-pointer bg-gray-800 hover:bg-gray-700 p-2 rounded border border-gray-700 transition"
-                    >
-                      <img src={item.coverUrl} className="w-full aspect-square object-cover rounded mb-2" />
-                      <p className="font-bold text-white text-sm truncate">{item.title}</p>
-                      <p className="text-gray-400 text-xs truncate">{item.artist}</p>
+                {/* Results Area */}
+                <div className="mt-6">
+                  {searchSource && (
+                    <p className="text-sm text-gray-400 mb-2">
+                      Resultados encontrados em: <span className="font-bold text-white">{searchSource === 'LOCAL' ? 'Catálogo Vinil D\'oro' : searchSource}</span>
+                    </p>
+                  )}
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-2">
+                    {searchResults.map((item, idx) => (
+                      <div 
+                        key={item.id || idx} 
+                        onClick={() => handleSelectResult(item)}
+                        className="cursor-pointer bg-gray-800 hover:bg-gray-700 p-3 rounded border border-gray-700 transition flex gap-3 group"
+                      >
+                        <img src={item.coverUrl} className="w-20 h-20 object-cover rounded shadow-md group-hover:scale-105 transition" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-white text-sm truncate">{item.title}</p>
+                          <p className="text-vinyl-accent text-xs truncate">{item.artist}</p>
+                          <p className="text-gray-400 text-xs mt-1">{item.year} • {item.format || 'Vinil'}</p>
+                          {item.label && <p className="text-gray-500 text-[10px] truncate">{item.label}</p>}
+                          <button className="mt-2 text-[10px] bg-gray-600 hover:bg-green-600 text-white px-2 py-1 rounded w-full transition">
+                            {searchSource === 'LOCAL' ? 'Selecionar' : 'Importar & Selecionar'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {!isSearching && searchResults.length === 0 && searchTerm && (
+                    <div className="text-center py-8 text-gray-500 border border-dashed border-gray-700 rounded">
+                      <p>Nenhum resultado encontrado.</p>
+                      <button onClick={() => setMode('MANUAL')} className="text-vinyl-accent underline mt-2">Cadastrar Manualmente</button>
                     </div>
-                  ))}
+                  )}
                 </div>
               </>
             ) : (
               <form onSubmit={handleManualCatalogSubmit} className="space-y-4 animate-[fadeIn_0.3s]">
-                <p className="text-gray-400 text-sm">Cadastre os dados principais do álbum (Catálogo).</p>
+                <p className="text-gray-400 text-sm">Adicione os dados da Ficha Técnica manualmente.</p>
                 
-                <div>
-                   <label className="block text-xs font-bold text-gray-500 mb-1">Capa do Álbum</label>
-                   <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={e => setManualCoverFile(e.target.files ? e.target.files[0] : null)}
-                    className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-vinyl-groove file:text-white hover:file:bg-gray-700"
-                  />
+                <div className="flex gap-4 items-start">
+                   <div className="w-32">
+                     <label className="block text-xs font-bold text-gray-500 mb-1">Capa</label>
+                     <div className="w-full aspect-square bg-gray-800 border-2 border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden">
+                        {manualCoverFile ? (
+                          <img src={URL.createObjectURL(manualCoverFile)} className="absolute inset-0 w-full h-full object-cover" />
+                        ) : <span className="text-2xl text-gray-600">+</span>}
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={e => setManualCoverFile(e.target.files ? e.target.files[0] : null)}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                     </div>
+                   </div>
+                   
+                   <div className="flex-1 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <input 
+                          type="text" 
+                          placeholder="Artista"
+                          required
+                          className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
+                          value={manualForm.artist}
+                          onChange={e => setManualForm({...manualForm, artist: e.target.value})}
+                        />
+                        <input 
+                          type="text" 
+                          placeholder="Álbum"
+                          required
+                          className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
+                          value={manualForm.title}
+                          onChange={e => setManualForm({...manualForm, title: e.target.value})}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input 
+                          type="number" 
+                          placeholder="Ano"
+                          required
+                          className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
+                          value={manualForm.year}
+                          onChange={e => setManualForm({...manualForm, year: e.target.value})}
+                        />
+                        <select
+                           className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
+                           value={manualForm.genre}
+                           onChange={e => setManualForm({...manualForm, genre: e.target.value as Genre})}
+                        >
+                          {Object.values(Genre).map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input 
+                          type="text" 
+                          placeholder="Formato (ex: Vinil, LP, Duplo)"
+                          className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
+                          value={manualForm.format}
+                          onChange={e => setManualForm({...manualForm, format: e.target.value})}
+                        />
+                        <input 
+                          type="text" 
+                          placeholder="Selo / Gravadora"
+                          className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
+                          value={manualForm.label}
+                          onChange={e => setManualForm({...manualForm, label: e.target.value})}
+                        />
+                      </div>
+                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <input 
-                      type="text" 
-                      placeholder="Artista / Banda"
-                      required
-                      className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
-                      value={manualForm.artist}
-                      onChange={e => setManualForm({...manualForm, artist: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <input 
-                      type="text" 
-                      placeholder="Nome do Álbum"
-                      required
-                      className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
-                      value={manualForm.title}
-                      onChange={e => setManualForm({...manualForm, title: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <select
-                       className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
-                       value={manualForm.genre}
-                       onChange={e => setManualForm({...manualForm, genre: e.target.value as Genre})}
-                    >
-                      {Object.values(Genre).map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <input 
-                      type="number" 
-                      placeholder="Ano de Lançamento"
-                      required
-                      className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
-                      value={manualForm.year}
-                      onChange={e => setManualForm({...manualForm, year: e.target.value})}
-                    />
-                  </div>
-                </div>
-                
                 <textarea 
-                   placeholder="Descrição curta do álbum (opcional)"
-                   className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                   placeholder="Descrição curta ou notas técnicas..."
+                   className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none text-sm"
                    value={manualForm.description}
                    onChange={e => setManualForm({...manualForm, description: e.target.value})}
                 />
 
                 <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded">
-                  Salvar e Continuar
+                  Salvar no Catálogo e Continuar
                 </button>
               </form>
             )}
@@ -267,45 +377,52 @@ export const SellVinyl: React.FC = () => {
 
         {step === 2 && selectedCatalogItem && (
           <form onSubmit={handlePublish} className="space-y-6 animate-[fadeIn_0.3s]">
-            <div className="flex items-center gap-4 bg-gray-800 p-4 rounded border border-gray-700">
-              <img src={selectedCatalogItem.coverUrl} className="w-16 h-16 object-cover rounded" />
+            <div className="flex items-center gap-4 bg-gray-800 p-4 rounded border border-gray-700 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-2 opacity-10 font-bold text-4xl pointer-events-none">
+                 {selectedCatalogItem.id.includes('discogs') ? 'DISCOGS' : 'CATÁLOGO'}
+              </div>
+              <img src={selectedCatalogItem.coverUrl} className="w-20 h-20 object-cover rounded shadow-lg" />
               <div>
-                <p className="font-bold text-white">{selectedCatalogItem.title}</p>
+                <p className="font-bold text-white text-lg">{selectedCatalogItem.title}</p>
                 <p className="text-gray-400 text-sm">{selectedCatalogItem.artist}</p>
-                <button type="button" onClick={() => setStep(1)} className="text-xs text-vinyl-accent hover:underline mt-1">Mudar Álbum</button>
+                <div className="flex gap-2 mt-1">
+                   <span className="text-[10px] bg-gray-700 text-white px-2 py-0.5 rounded">{selectedCatalogItem.year}</span>
+                   <span className="text-[10px] bg-gray-700 text-white px-2 py-0.5 rounded">{selectedCatalogItem.format}</span>
+                </div>
+                <button type="button" onClick={() => setStep(1)} className="text-xs text-vinyl-accent hover:underline mt-2">← Escolher outro álbum</button>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Estado de Conservação</label>
-              <select 
-                value={condition} 
-                onChange={(e) => setCondition(e.target.value as VinylCondition)}
-                className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
-              >
-                {Object.values(VinylCondition).map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Estado de Conservação</label>
+                <select 
+                  value={condition} 
+                  onChange={(e) => setCondition(e.target.value as VinylCondition)}
+                  className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                >
+                  {Object.values(VinylCondition).map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Preço do Vinil (R$)</label>
-              <input 
-                type="number" 
-                step="0.01" 
-                required
-                value={price}
-                onChange={e => setPrice(e.target.value)}
-                className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
-              />
-              <p className="text-xs text-gray-500 mt-1">Taxa de plataforma de 5% será deduzida apenas do valor do produto.</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Preço do Vinil (R$)</label>
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  required
+                  value={price}
+                  onChange={e => setPrice(e.target.value)}
+                  className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                />
+              </div>
             </div>
 
             {/* Delivery Options */}
             <div className="bg-gray-800 p-4 rounded border border-gray-700 space-y-4">
                <h3 className="font-bold text-white text-sm border-b border-gray-600 pb-2">Opções de Entrega</h3>
-               
                <div className="flex items-center">
                  <input 
                    type="checkbox" 
@@ -314,11 +431,9 @@ export const SellVinyl: React.FC = () => {
                    onChange={e => setAllowPickup(e.target.checked)}
                    className="h-4 w-4 text-vinyl-accent bg-gray-700 border-gray-600 rounded"
                  />
-                 <label htmlFor="pickup" className="ml-2 text-sm text-gray-300">Aceito Retirada em Mãos (Grátis - Local a combinar)</label>
+                 <label htmlFor="pickup" className="ml-2 text-sm text-gray-300">Aceito Retirada em Mãos</label>
                </div>
-
-               <div className="space-y-2">
-                 <div className="flex items-center">
+               <div className="flex items-center">
                    <input 
                      type="checkbox" 
                      id="shipping"
@@ -326,16 +441,7 @@ export const SellVinyl: React.FC = () => {
                      onChange={e => setAllowShipping(e.target.checked)}
                      className="h-4 w-4 text-vinyl-accent bg-gray-700 border-gray-600 rounded"
                    />
-                   <label htmlFor="shipping" className="ml-2 text-sm text-gray-300">Faço Envio (Correios, Uber Flash, etc)</label>
-                 </div>
-                 
-                 {allowShipping && (
-                   <div className="ml-6 animate-[fadeIn_0.3s]">
-                     <p className="text-sm text-yellow-500 italic">
-                        O valor do frete deverá ser combinado diretamente com o comprador após a venda, pois depende do endereço de entrega.
-                     </p>
-                   </div>
-                 )}
+                   <label htmlFor="shipping" className="ml-2 text-sm text-gray-300">Faço Envio (Frete a combinar)</label>
                </div>
             </div>
 
@@ -351,23 +457,22 @@ export const SellVinyl: React.FC = () => {
                   file:rounded-full file:border-0
                   file:text-sm file:font-semibold
                   file:bg-vinyl-groove file:text-white
-                  hover:file:bg-gray-700
-                "
+                  hover:file:bg-gray-700"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Descrição / Notas</label>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Descrição do estado / Notas</label>
               <textarea 
                 rows={3}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                placeholder="Detalhes específicos sobre riscos, estado da capa, etc."
+                placeholder="Ex: Capa com leve desgaste nas bordas, disco toca perfeitamente..."
                 className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
               />
             </div>
 
-            <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded transition">
+            <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded transition shadow-lg shadow-yellow-900/20">
               Publicar Anúncio
             </button>
           </form>
