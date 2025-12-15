@@ -195,14 +195,27 @@ export const ListingDetails: React.FC = () => {
         
         {/* Images */}
         <div className="space-y-4 relative">
-          <div className="aspect-square w-full rounded-lg overflow-hidden border border-gray-700 shadow-2xl bg-gray-800">
-            <img src={mainImage} alt="Main" className="w-full h-full object-contain" />
+          {/* Main Image Container - Optimized for Quality and Size */}
+          <div className="w-full h-[450px] rounded-lg overflow-hidden border border-gray-700 shadow-2xl bg-gray-900 relative flex items-center justify-center group">
+            
+            {/* Blurred Background Layer (Aesthetic fill) */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center blur-xl opacity-40 grayscale-[30%]"
+              style={{ backgroundImage: `url(${mainImage})` }}
+            />
+
+            {/* Actual Image - No stretching */}
+            <img 
+              src={mainImage} 
+              alt="Main" 
+              className="relative z-10 max-h-full max-w-full object-contain shadow-lg rounded transition-transform duration-300 group-hover:scale-105" 
+            />
           </div>
           
           {/* Favorite Button Overlay */}
           <button 
             onClick={handleToggleFavorite}
-            className={`absolute top-4 right-4 p-3 rounded-full shadow-lg transition-transform hover:scale-110 z-10 ${isFavorited ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            className={`absolute top-4 right-4 p-3 rounded-full shadow-lg transition-transform hover:scale-110 z-20 ${isFavorited ? 'bg-red-600 text-white' : 'bg-gray-900/80 text-gray-400 hover:text-white border border-gray-600'}`}
             title={isFavorited ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}
           >
              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill={isFavorited ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
