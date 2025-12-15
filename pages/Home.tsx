@@ -4,7 +4,11 @@ import { Link } from 'react-router-dom';
 
 export const Home: React.FC = () => {
   const { getEnrichedListings, currentUser, toggleFavorite } = useStore();
-  const listings = getEnrichedListings().filter(l => l.status === 'DISPONÍVEL');
+  
+  // Sort by createdAt descending (newest first)
+  const listings = getEnrichedListings()
+    .filter(l => l.status === 'DISPONÍVEL')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const handleFavoriteClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();

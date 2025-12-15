@@ -10,11 +10,24 @@ export const SellVinyl: React.FC = () => {
 
   // Step 1: Catalog Selection
   const [step, setStep] = useState<1 | 2>(1);
+  const [mode, setMode] = useState<'SEARCH' | 'MANUAL'>('SEARCH'); // Toggle between Search and Manual
+  
+  // Search State
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCatalogItem, setSelectedCatalogItem] = useState<CatalogItem | null>(null);
   const [isSearchingAI, setIsSearchingAI] = useState(false);
 
+  // Manual Entry State
+  const [manualForm, setManualForm] = useState({
+    artist: '',
+    title: '',
+    genre: Genre.ROCK,
+    year: '',
+    description: ''
+  });
+  const [manualCoverFile, setManualCoverFile] = useState<File | null>(null);
+
   // Step 2: Listing Details
+  const [selectedCatalogItem, setSelectedCatalogItem] = useState<CatalogItem | null>(null);
   const [price, setPrice] = useState('');
   const [condition, setCondition] = useState<VinylCondition>(VinylCondition.VG);
   const [description, setDescription] = useState('');
@@ -37,8 +50,7 @@ export const SellVinyl: React.FC = () => {
     const existing = catalog.find(c => c.title.toLowerCase().includes(searchTerm.toLowerCase()));
     
     if (existing) {
-       // Just showing existing filter in UI below, but this is for specific AI Action
-       alert("Encontrado localmente! Selecione na lista.");
+       alert("Encontrado localmente! Selecione na lista abaixo.");
     } else {
        // 2. Ask Gemini
        const aiResult = await getAlbumDetails(searchTerm);
@@ -46,17 +58,45 @@ export const SellVinyl: React.FC = () => {
          const newItem: CatalogItem = {
            id: `c-${Date.now()}`,
            ...aiResult,
-           genre: aiResult.genre as Genre, // Casting assuming AI behaves or fallback
+           genre: aiResult.genre as Genre, 
            coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400` // Mock image for AI result
          };
          addToCatalog(newItem);
          setSelectedCatalogItem(newItem);
          setStep(2);
        } else {
-         alert("Não foi possível encontrar detalhes do álbum. Tente inserir manualmente (Não implementado na demo).");
+         if(confirm("Não foi possível encontrar detalhes do álbum automaticamente. Deseja cadastrar manualmente?")) {
+            setMode('MANUAL');
+         }
        }
     }
     setIsSearchingAI(false);
+  };
+
+  const handleManualCatalogSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualForm.title || !manualForm.artist || !manualForm.year) {
+      return alert("Preencha os campos obrigatórios do álbum.");
+    }
+
+    // Create Object URL for the cover image if uploaded, else random
+    const coverUrl = manualCoverFile 
+      ? URL.createObjectURL(manualCoverFile)
+      : `https://picsum.photos/seed/${manualForm.title}/400/400`;
+
+    const newItem: CatalogItem = {
+      id: `c-man-${Date.now()}`,
+      artist: manualForm.artist,
+      title: manualForm.title,
+      genre: manualForm.genre,
+      year: parseInt(manualForm.year),
+      description: manualForm.description || 'Cadastrado pelo vendedor.',
+      coverUrl: coverUrl
+    };
+
+    addToCatalog(newItem);
+    setSelectedCatalogItem(newItem);
+    setStep(2);
   };
 
   const handlePublish = (e: React.FormEvent) => {
@@ -67,7 +107,7 @@ export const SellVinyl: React.FC = () => {
 
     // Process images (Mocking file upload to URL)
     const mockImageUrls = imageFiles && imageFiles.length > 0 
-      ? Array.from(imageFiles).map(() => `https://picsum.photos/id/${Math.floor(Math.random()*100)}/400/400`) // Random placeholders for demo
+      ? Array.from(imageFiles).map((file) => URL.createObjectURL(file as Blob))
       : [selectedCatalogItem.coverUrl];
 
     const newListing: Listing = {
@@ -86,7 +126,7 @@ export const SellVinyl: React.FC = () => {
     };
 
     addListing(newListing);
-    navigate('/profile');
+    navigate('/'); // Redirect to Home to see the new item
   };
 
   const filteredCatalog = catalog.filter((item) => 
@@ -101,45 +141,133 @@ export const SellVinyl: React.FC = () => {
         
         {step === 1 && (
           <div className="space-y-6">
-            <p className="text-gray-400">Passo 1: Encontre seu álbum em nosso catálogo mestre.</p>
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                value={searchTerm} 
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar por Artista ou Título..."
-                className="flex-1 bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
-              />
+            
+            {/* Toggle Mode */}
+            <div className="flex border-b border-gray-700 mb-4">
               <button 
-                onClick={handleCatalogSearch} 
-                disabled={isSearchingAI}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded font-medium disabled:opacity-50"
+                onClick={() => setMode('SEARCH')}
+                className={`px-4 py-2 font-medium text-sm ${mode === 'SEARCH' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400'}`}
               >
-                {isSearchingAI ? 'Perguntando à IA...' : 'IA Buscar'}
+                Buscar no Catálogo
+              </button>
+              <button 
+                onClick={() => setMode('MANUAL')}
+                className={`px-4 py-2 font-medium text-sm ${mode === 'MANUAL' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400'}`}
+              >
+                Cadastrar Novo Álbum
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-              {filteredCatalog.map(item => (
-                <div 
-                  key={item.id} 
-                  onClick={() => { setSelectedCatalogItem(item); setStep(2); }}
-                  className="cursor-pointer bg-gray-800 hover:bg-gray-700 p-2 rounded border border-gray-700 transition"
-                >
-                  <img src={item.coverUrl} className="w-full aspect-square object-cover rounded mb-2" />
-                  <p className="font-bold text-white text-sm truncate">{item.title}</p>
-                  <p className="text-gray-400 text-xs truncate">{item.artist}</p>
+            {mode === 'SEARCH' ? (
+              <>
+                <p className="text-gray-400">Encontre o álbum em nosso banco de dados ou use a IA.</p>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Buscar por Artista ou Título..."
+                    className="flex-1 bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                  />
+                  <button 
+                    onClick={handleCatalogSearch} 
+                    disabled={isSearchingAI}
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded font-medium disabled:opacity-50"
+                  >
+                    {isSearchingAI ? 'Perguntando à IA...' : 'IA Buscar'}
+                  </button>
                 </div>
-              ))}
-            </div>
-            {filteredCatalog.length === 0 && !isSearchingAI && searchTerm && (
-              <p className="text-center text-gray-500 mt-4">Não encontrado? Clique em "IA Buscar" para gerar a entrada no catálogo automaticamente.</p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-96 overflow-y-auto mt-4">
+                  {filteredCatalog.map(item => (
+                    <div 
+                      key={item.id} 
+                      onClick={() => { setSelectedCatalogItem(item); setStep(2); }}
+                      className="cursor-pointer bg-gray-800 hover:bg-gray-700 p-2 rounded border border-gray-700 transition"
+                    >
+                      <img src={item.coverUrl} className="w-full aspect-square object-cover rounded mb-2" />
+                      <p className="font-bold text-white text-sm truncate">{item.title}</p>
+                      <p className="text-gray-400 text-xs truncate">{item.artist}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <form onSubmit={handleManualCatalogSubmit} className="space-y-4 animate-[fadeIn_0.3s]">
+                <p className="text-gray-400 text-sm">Cadastre os dados principais do álbum (Catálogo).</p>
+                
+                <div>
+                   <label className="block text-xs font-bold text-gray-500 mb-1">Capa do Álbum</label>
+                   <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={e => setManualCoverFile(e.target.files ? e.target.files[0] : null)}
+                    className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-vinyl-groove file:text-white hover:file:bg-gray-700"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <input 
+                      type="text" 
+                      placeholder="Artista / Banda"
+                      required
+                      className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                      value={manualForm.artist}
+                      onChange={e => setManualForm({...manualForm, artist: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <input 
+                      type="text" 
+                      placeholder="Nome do Álbum"
+                      required
+                      className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                      value={manualForm.title}
+                      onChange={e => setManualForm({...manualForm, title: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <select
+                       className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                       value={manualForm.genre}
+                       onChange={e => setManualForm({...manualForm, genre: e.target.value as Genre})}
+                    >
+                      {Object.values(Genre).map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <input 
+                      type="number" 
+                      placeholder="Ano de Lançamento"
+                      required
+                      className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                      value={manualForm.year}
+                      onChange={e => setManualForm({...manualForm, year: e.target.value})}
+                    />
+                  </div>
+                </div>
+                
+                <textarea 
+                   placeholder="Descrição curta do álbum (opcional)"
+                   className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                   value={manualForm.description}
+                   onChange={e => setManualForm({...manualForm, description: e.target.value})}
+                />
+
+                <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded">
+                  Salvar e Continuar
+                </button>
+              </form>
             )}
           </div>
         )}
 
         {step === 2 && selectedCatalogItem && (
-          <form onSubmit={handlePublish} className="space-y-6">
+          <form onSubmit={handlePublish} className="space-y-6 animate-[fadeIn_0.3s]">
             <div className="flex items-center gap-4 bg-gray-800 p-4 rounded border border-gray-700">
               <img src={selectedCatalogItem.coverUrl} className="w-16 h-16 object-cover rounded" />
               <div>
@@ -220,7 +348,7 @@ export const SellVinyl: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Suas Fotos</label>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Fotos Reais do Produto</label>
               <input 
                 type="file" 
                 multiple 
