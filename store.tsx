@@ -39,7 +39,35 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// Initial Mock Data
+// --- DB INITIALIZATION HELPERS ---
+const DB_KEYS = {
+  USERS: 'vd_db_users',
+  CATALOG: 'vd_db_catalog',
+  LISTINGS: 'vd_db_listings',
+  REVIEWS: 'vd_db_reviews',
+  RESERVATIONS: 'vd_db_reservations',
+  CURRENT_USER_ID: 'vd_auth_uid'
+};
+
+const loadFromDB = <T,>(key: string, fallback: T): T => {
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : fallback;
+  } catch (e) {
+    console.error(`Erro ao carregar do banco de dados (${key}):`, e);
+    return fallback;
+  }
+};
+
+const saveToDB = (key: string, data: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error(`Erro ao salvar no banco de dados (${key}):`, e);
+  }
+};
+
+// Initial Mock Data (Used only on first load if DB is empty)
 const INITIAL_CATALOG: CatalogItem[] = [
   {
     id: 'c1',
@@ -81,7 +109,7 @@ const INITIAL_USERS: User[] = [
     id: 'u1',
     name: 'João Silva',
     email: 'joao@example.com',
-    password: 'User1234', // Mock Password
+    password: 'User1234', 
     cpf: '123.456.789-00',
     address: 'Rua Vinyl, 123, SP',
     phone: '(11) 99999-9999',
@@ -99,7 +127,7 @@ const INITIAL_USERS: User[] = [
     id: 'u2',
     name: 'Maria Oliveira',
     email: 'maria@example.com',
-    password: 'User1234', // Mock Password
+    password: 'User1234', 
     cpf: '987.654.321-11',
     address: 'Av. Musica, 500, RJ',
     phone: '(21) 98888-8888',
@@ -129,24 +157,6 @@ const INITIAL_USERS: User[] = [
     address: 'Sede Vinil Doro',
     phone: '0800',
     role: 'ADMIN',
-    walletBalance: 0,
-    sellerRating: 0,
-    sellerReviewCount: 0,
-    buyerRating: 0,
-    buyerReviewCount: 0,
-    favorites: [],
-    notifications: [],
-    savedPaymentMethods: []
-  },
-  {
-    id: 'support1',
-    name: 'Suporte Técnico',
-    email: 'suporte@vinildoro.com',
-    password: 'Admin1234',
-    cpf: '111.111.111-11',
-    address: 'Home Office',
-    phone: '0800',
-    role: 'ATENDENTE',
     walletBalance: 0,
     sellerRating: 0,
     sellerReviewCount: 0,
@@ -189,20 +199,42 @@ const INITIAL_REVIEWS: Review[] = [
 ];
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
-  const [catalog, setCatalog] = useState<CatalogItem[]>(INITIAL_CATALOG);
-  const [listings, setListings] = useState<Listing[]>(INITIAL_LISTINGS);
-  const [reviews, setReviews] = useState<Review[]>(INITIAL_REVIEWS);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  // Initialize State from "Database" (LocalStorage)
+  const [users, setUsers] = useState<User[]>(() => loadFromDB(DB_KEYS.USERS, INITIAL_USERS));
+  const [catalog, setCatalog] = useState<CatalogItem[]>(() => loadFromDB(DB_KEYS.CATALOG, INITIAL_CATALOG));
+  const [listings, setListings] = useState<Listing[]>(() => loadFromDB(DB_KEYS.LISTINGS, INITIAL_LISTINGS));
+  const [reviews, setReviews] = useState<Review[]>(() => loadFromDB(DB_KEYS.REVIEWS, INITIAL_REVIEWS));
+  const [reservations, setReservations] = useState<Reservation[]>(() => loadFromDB(DB_KEYS.RESERVATIONS, []));
+  
+  // Auth state
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const savedId = localStorage.getItem(DB_KEYS.CURRENT_USER_ID);
+    if(savedId) {
+      const allUsers = loadFromDB<User[]>(DB_KEYS.USERS, INITIAL_USERS);
+      return allUsers.find(u => u.id === savedId) || null;
+    }
+    return null;
+  });
 
-  // Sync currentUser with users state whenever users change
+  // --- PERSISTENCE EFFECTS (Save to DB on change) ---
+  useEffect(() => saveToDB(DB_KEYS.USERS, users), [users]);
+  useEffect(() => saveToDB(DB_KEYS.CATALOG, catalog), [catalog]);
+  useEffect(() => saveToDB(DB_KEYS.LISTINGS, listings), [listings]);
+  useEffect(() => saveToDB(DB_KEYS.REVIEWS, reviews), [reviews]);
+  useEffect(() => saveToDB(DB_KEYS.RESERVATIONS, reservations), [reservations]);
+  
   useEffect(() => {
     if (currentUser) {
+      localStorage.setItem(DB_KEYS.CURRENT_USER_ID, currentUser.id);
+      // Ensure currentUser state is synced with users array (for wallet/notifications updates)
       const updatedUser = users.find(u => u.id === currentUser.id);
-      if (updatedUser) setCurrentUser(updatedUser);
+      if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(currentUser)) {
+        setCurrentUser(updatedUser);
+      }
+    } else {
+      localStorage.removeItem(DB_KEYS.CURRENT_USER_ID);
     }
-  }, [users]);
+  }, [currentUser, users]);
 
   // AUTOMATIC EXPIRATION CHECKER
   useEffect(() => {
@@ -269,6 +301,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const register = (newUser: User) => {
+    const exists = users.find(u => u.email === newUser.email || u.cpf === newUser.cpf);
+    if (exists) {
+      alert("Usuário com este email ou CPF já existe.");
+      return;
+    }
     setUsers([...users, newUser]);
     setCurrentUser(newUser);
   };

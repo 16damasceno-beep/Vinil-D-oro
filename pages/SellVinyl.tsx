@@ -1,9 +1,20 @@
+
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { CatalogItem, Genre, VinylCondition, Listing } from '../types';
 import { getAlbumDetails } from '../services/geminiService';
 import { searchDiscogs } from '../services/discogsService';
 import { useNavigate } from 'react-router-dom';
+
+// Helper to convert file to Base64 string for database storage
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
 
 export const SellVinyl: React.FC = () => {
   const { catalog, addToCatalog, addListing, currentUser } = useStore();
@@ -40,7 +51,8 @@ export const SellVinyl: React.FC = () => {
   const [price, setPrice] = useState('');
   const [condition, setCondition] = useState<VinylCondition>(VinylCondition.VG);
   const [description, setDescription] = useState('');
-  const [imageFiles, setImageFiles] = useState<FileList | null>(null);
+  
+  // Image Storage (Base64)
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   
   // Delivery Options
@@ -125,15 +137,23 @@ export const SellVinyl: React.FC = () => {
     setStep(2);
   };
 
-  const handleManualCatalogSubmit = (e: React.FormEvent) => {
+  const handleManualCatalogSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualForm.title || !manualForm.artist || !manualForm.year) {
       return alert("Preencha os campos obrigatórios do álbum.");
     }
 
-    const coverUrl = manualCoverFile 
-      ? URL.createObjectURL(manualCoverFile)
-      : `https://picsum.photos/seed/${manualForm.title}/400/400`;
+    let coverUrl = `https://picsum.photos/seed/${manualForm.title}/400/400`;
+    
+    // Convert uploaded cover to Base64 for persistence
+    if (manualCoverFile) {
+       try {
+         coverUrl = await fileToBase64(manualCoverFile);
+       } catch (err) {
+         console.error("Error reading file", err);
+         return alert("Erro ao processar imagem da capa.");
+       }
+    }
 
     const newItem: CatalogItem = {
       id: `c-man-${Date.now()}`,
@@ -152,20 +172,27 @@ export const SellVinyl: React.FC = () => {
     setStep(2);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       if (e.target.files.length > 5) {
         alert("Máximo de 5 fotos permitido.");
         e.target.value = ''; // Reset input
-        setImageFiles(null);
         setPreviewImages([]);
         return;
       }
-      setImageFiles(e.target.files);
       
-      // Generate previews
-      const previews = Array.from(e.target.files).map(file => URL.createObjectURL(file));
-      setPreviewImages(previews);
+      // Explicitly type as File[] to avoid 'unknown' type inference in some TS environments
+      const filesArray: File[] = Array.from(e.target.files);
+      
+      try {
+        // Convert all files to Base64
+        const base64Promises = filesArray.map(file => fileToBase64(file));
+        const base64Images = await Promise.all(base64Promises);
+        setPreviewImages(base64Images);
+      } catch (err) {
+        console.error("Error converting images", err);
+        alert("Erro ao processar imagens.");
+      }
     }
   };
 
@@ -174,8 +201,8 @@ export const SellVinyl: React.FC = () => {
     if (!selectedCatalogItem || !price) return;
     if (!allowPickup && !allowShipping) return alert("Selecione pelo menos uma forma de entrega.");
 
-    const mockImageUrls = imageFiles && imageFiles.length > 0 
-      ? Array.from(imageFiles).map((file) => URL.createObjectURL(file as any))
+    const finalUserImages = previewImages.length > 0 
+      ? previewImages 
       : [selectedCatalogItem.coverUrl];
 
     const newListing: Listing = {
@@ -185,7 +212,7 @@ export const SellVinyl: React.FC = () => {
       price: parseFloat(price),
       condition,
       description,
-      userImages: mockImageUrls,
+      userImages: finalUserImages,
       status: 'DISPONÍVEL',
       createdAt: new Date().toISOString(),
       allowPickup,
