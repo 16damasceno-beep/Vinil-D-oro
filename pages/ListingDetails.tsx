@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
+import { ItemType } from '../types';
 
 export const ListingDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +43,8 @@ export const ListingDetails: React.FC = () => {
   const isFavorited = currentUser?.favorites?.includes(listing.id);
 
   const isReservedByMe = isReserved && listing.activeReservation?.buyerId === currentUser?.id;
+  
+  const isEquipment = listing.catalogItem.itemType === ItemType.EQUIPMENT;
 
   const handleBuyClick = () => {
     if (!currentUser) {
@@ -221,11 +224,20 @@ export const ListingDetails: React.FC = () => {
             <h1 className="text-4xl font-bold mb-2">{listing.catalogItem.title}</h1>
             <p className="text-xl text-vinyl-accent">{listing.catalogItem.artist}</p>
             <div className="flex flex-wrap gap-2 mt-2">
-               <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{listing.catalogItem.genre}</span>
-               <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{listing.catalogItem.year}</span>
+               {!isEquipment && (
+                 <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{listing.catalogItem.genre}</span>
+               )}
+               <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">
+                  {isEquipment ? 'Fabricação: ' : ''}{listing.catalogItem.year}
+               </span>
                <span className="bg-gray-800 text-vinyl-accent px-2 py-1 rounded text-xs border border-gray-700 border-dashed">
                  {listing.catalogItem.itemType || listing.catalogItem.format || 'Vinil'}
                </span>
+               {isEquipment && listing.catalogItem.voltage && (
+                 <span className="bg-blue-900/50 text-blue-300 px-2 py-1 rounded text-xs border border-blue-800">
+                   {listing.catalogItem.voltage}
+                 </span>
+               )}
                <span className={`px-2 py-1 rounded text-xs font-bold border ${listing.productCondition === 'NOVO' ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>
                   {listing.productCondition || 'USADO'}
                </span>
@@ -324,16 +336,37 @@ export const ListingDetails: React.FC = () => {
                    <span className="text-gray-400">Tipo de Item:</span>
                    <span className="text-white font-bold">{listing.catalogItem.itemType || 'Vinil'}</span>
                  </div>
+                 
+                 {isEquipment ? (
+                    <>
+                      <div className="flex justify-between border-b border-gray-700 pb-1">
+                        <span className="text-gray-400">Marca / Fabricante:</span>
+                        <span className="text-white">{listing.catalogItem.artist}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-700 pb-1">
+                        <span className="text-gray-400">Modelo:</span>
+                        <span className="text-white font-bold">{listing.catalogItem.title}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-700 pb-1">
+                        <span className="text-gray-400">Voltagem:</span>
+                        <span className="text-white">{listing.catalogItem.voltage || 'N/A'}</span>
+                      </div>
+                    </>
+                 ) : (
+                    <>
+                      <div className="flex justify-between border-b border-gray-700 pb-1">
+                        <span className="text-gray-400">Gravadora / Selo:</span>
+                        <span className="text-white">{listing.catalogItem.label || 'Não informado'}</span>
+                      </div>
+                    </>
+                 )}
+
                  <div className="flex justify-between border-b border-gray-700 pb-1">
-                   <span className="text-gray-400">Gravadora / Selo:</span>
-                   <span className="text-white">{listing.catalogItem.label || 'Não informado'}</span>
-                 </div>
-                 <div className="flex justify-between border-b border-gray-700 pb-1">
-                   <span className="text-gray-400">Ano de Lançamento:</span>
+                   <span className="text-gray-400">{isEquipment ? 'Ano Fabricação:' : 'Ano Lançamento:'}</span>
                    <span className="text-white">{listing.catalogItem.year || '-'}</span>
                  </div>
                  <div className="mt-3">
-                    <p className="text-gray-400 text-xs uppercase mb-1">Descrição do Álbum (Catálogo):</p>
+                    <p className="text-gray-400 text-xs uppercase mb-1">Descrição {isEquipment ? 'do Equipamento' : 'do Álbum'} (Catálogo):</p>
                     <p className="text-gray-300">{listing.catalogItem.description}</p>
                  </div>
               </div>

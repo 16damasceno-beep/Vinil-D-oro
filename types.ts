@@ -84,16 +84,17 @@ export interface User {
 
 export interface CatalogItem {
   id: string;
-  artist: string;
-  title: string;
+  artist: string; // Para Equipamentos, serve como MARCA
+  title: string;  // Para Equipamentos, serve como MODELO
   genre: Genre;
-  itemType: ItemType; // Novo campo
+  itemType: ItemType; 
   coverUrl: string;
   year?: number;
   description?: string;
   format?: string;
   label?: string;
   discogsId?: number;
+  voltage?: string; // Novo campo: 110v, 220v, Bivolt
 }
 
 export type ListingStatus = 'DISPONÍVEL' | 'RESERVADO' | 'AGUARDANDO_ENVIO' | 'ENVIADO' | 'CONCLUÍDO' | 'VENDIDO_FORA';
@@ -104,8 +105,8 @@ export interface Listing {
   buyerId?: string;
   catalogItemId: string;
   price: number;
-  productCondition: ProductCondition; // Novo campo (Novo/Usado)
-  condition: VinylCondition; // Estado físico detalhado (VG, M, etc)
+  productCondition: ProductCondition; 
+  condition: VinylCondition; 
   description: string;
   userImages: string[];
   status: ListingStatus;
