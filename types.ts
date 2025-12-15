@@ -64,10 +64,11 @@ export interface PaymentMethod {
 
 export interface User {
   id: string;
-  name: string;
+  name: string;      // Nome Completo (Privado até compra)
+  nickname: string;  // Apelido / Nome da Loja (Público)
   email: string;
   password?: string;
-  cpf: string;
+  cpf: string;       // CPF ou CNPJ
   address: string;
   phone: string;
   role: UserRole;
@@ -149,6 +150,8 @@ export interface Reservation {
 export interface EnrichedListing extends Listing {
   catalogItem: CatalogItem;
   sellerName: string;
+  sellerDocument?: string; // Para passar o CPF/CNPJ mascarado
   buyerName?: string;
+  buyerDocument?: string; // Para passar o CPF/CNPJ mascarado
   activeReservation?: Reservation;
 }

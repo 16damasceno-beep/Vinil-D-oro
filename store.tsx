@@ -112,6 +112,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 'u1',
     name: 'João Silva',
+    nickname: 'João do Vinil',
     email: 'joao@example.com',
     password: 'User1234', 
     cpf: '123.456.789-00',
@@ -130,6 +131,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 'u2',
     name: 'Maria Oliveira',
+    nickname: 'Maria Discos & Raros',
     email: 'maria@example.com',
     password: 'User1234', 
     cpf: '987.654.321-11',
@@ -155,6 +157,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 'admin1',
     name: 'Administrador Master',
+    nickname: 'Admin',
     email: 'admin@vinildoro.com',
     password: 'Admin1234',
     cpf: '000.000.000-00',
@@ -308,7 +311,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const register = (newUser: User) => {
     const exists = users.find(u => u.email === newUser.email || u.cpf === newUser.cpf);
     if (exists) {
-      alert("Usuário com este email ou CPF já existe.");
+      alert("Usuário com este email ou CPF/CNPJ já existe.");
       return;
     }
     setUsers([...users, newUser]);
@@ -762,11 +765,15 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       
       if (!catalogItem || !seller) return null;
 
+      // Use nickname for public display, full name for admin/private if needed
+      // Logic: sellerName public property uses nickname or falls back to name
       return {
         ...listing,
         catalogItem,
-        sellerName: seller.name,
-        buyerName: buyer?.name,
+        sellerName: seller.nickname || seller.name,
+        sellerDocument: seller.cpf,
+        buyerName: buyer ? (buyer.nickname || buyer.name) : undefined,
+        buyerDocument: buyer?.cpf,
         activeReservation
       };
     }).filter((l): l is EnrichedListing => l !== null);

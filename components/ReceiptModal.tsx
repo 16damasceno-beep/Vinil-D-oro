@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { EnrichedListing } from '../types';
 
@@ -28,6 +29,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, lis
   const totalPrice = listing.finalTotalPrice || listing.price;
   const serviceFee = listing.price * 0.05; // Fee only on product
   const sellerReceive = (listing.price - serviceFee) + shippingCost;
+
+  // Masking Logic: Show 1st char and last 3 chars. Hide rest.
+  const maskDocument = (doc?: string) => {
+    if (!doc) return 'N/A';
+    const clean = doc.replace(/\D/g, '');
+    if (clean.length < 4) return '***';
+    const first = clean.substring(0, 1);
+    const last3 = clean.substring(clean.length - 3);
+    return `${first}**.***.**${last3}`;
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:absolute print:inset-0">
@@ -83,10 +94,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, lis
                 <div>
                   <p className="text-xs text-gray-500 uppercase">Vendedor</p>
                   <p className="font-bold">{listing.sellerName}</p>
+                  <p className="text-xs text-gray-400">Doc: {maskDocument(listing.sellerDocument)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 uppercase">Comprador</p>
                   <p className="font-bold">{listing.buyerName || 'N/A'}</p>
+                  <p className="text-xs text-gray-400">Doc: {maskDocument(listing.buyerDocument)}</p>
                 </div>
               </div>
             </div>

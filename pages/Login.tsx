@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +13,7 @@ export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [nickname, setNickname] = useState(''); // Apelido / Nome da Loja
   const [cpf, setCpf] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
@@ -25,13 +27,41 @@ export const Login: React.FC = () => {
     return pwd.length >= minLength && hasUpperCase && hasNumber;
   }
 
+  // Format CPF/CNPJ while typing
+  const handleCpfCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    
+    if (value.length <= 11) {
+      // CPF Mask: 000.000.000-00
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    } else {
+      // CNPJ Mask: 00.000.000/0000-00
+      value = value.substring(0, 14); // Limit to 14 chars
+      value = value.replace(/^(\d{2})(\d)/, '$1.$2');
+      value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+      value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
+      value = value.replace(/(\d{4})(\d)/, '$1-$2');
+    }
+    setCpf(value);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isRegistering) {
       if (!acceptedTerms) {
         return alert("Para prosseguir com o cadastro, você deve ler e aceitar o Termo de Responsabilidade.");
       }
-      if (!name || !cpf || !address || !phone || !password) return alert("Preencha todos os campos");
+      // Mandatory Fields Check
+      if (!name.trim() || !nickname.trim() || !cpf.trim() || !address.trim() || !phone.trim() || !email.trim() || !password.trim()) {
+        return alert("Todos os campos são obrigatórios.");
+      }
+      
+      const cleanCpf = cpf.replace(/\D/g, '');
+      if (cleanCpf.length !== 11 && cleanCpf.length !== 14) {
+        return alert("CPF ou CNPJ inválido.");
+      }
       
       if (!validatePassword(password)) {
         return alert("A senha deve conter no mínimo 8 dígitos, uma letra maiúscula e um número.");
@@ -42,6 +72,7 @@ export const Login: React.FC = () => {
         email,
         password,
         name,
+        nickname,
         cpf,
         address,
         phone,
@@ -49,7 +80,7 @@ export const Login: React.FC = () => {
         walletBalance: 0,
         favorites: [],
         notifications: [],
-        savedPaymentMethods: [], // Inicializado vazio
+        savedPaymentMethods: [], 
         sellerRating: 0,
         sellerReviewCount: 0,
         buyerRating: 0,
@@ -60,8 +91,6 @@ export const Login: React.FC = () => {
     } else {
       if (!email || !password) return alert("Preencha email e senha.");
       login(email, password);
-      // Login function handles success/fail alert or state update
-      // We rely on store to update currentUser, check it below or in store
       navigate('/');
     }
   };
@@ -97,7 +126,7 @@ export const Login: React.FC = () => {
               />
             </div>
             
-            {/* Password Field (Used for both Login and Register) */}
+            {/* Password Field */}
             <div>
               <label htmlFor="password" className="sr-only">Senha</label>
               <input
@@ -122,7 +151,7 @@ export const Login: React.FC = () => {
                     type="text"
                     required
                     className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm"
-                    placeholder="Nome Completo"
+                    placeholder="Nome Completo (Privado)"
                     value={name}
                     onChange={e => setName(e.target.value)}
                   />
@@ -132,9 +161,20 @@ export const Login: React.FC = () => {
                     type="text"
                     required
                     className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm"
-                    placeholder="CPF"
+                    placeholder="Apelido / Nome da Loja (Público)"
+                    value={nickname}
+                    onChange={e => setNickname(e.target.value)}
+                  />
+                  <p className="text-[10px] text-gray-400 px-2 bg-gray-800 border-x border-gray-700">Este nome aparecerá nos seus anúncios.</p>
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    required
+                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm"
+                    placeholder="CPF ou CNPJ"
                     value={cpf}
-                    onChange={e => setCpf(e.target.value)}
+                    onChange={handleCpfCnpjChange}
                   />
                 </div>
                 <div>

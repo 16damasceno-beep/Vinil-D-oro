@@ -107,6 +107,16 @@ export const Profile: React.FC = () => {
     }
   };
 
+  // Masking Logic
+  const maskDocument = (doc?: string) => {
+    if (!doc) return 'N/A';
+    const clean = doc.replace(/\D/g, '');
+    if (clean.length < 4) return '***';
+    const first = clean.substring(0, 1);
+    const last3 = clean.substring(clean.length - 3);
+    return `${first}**.***.**${last3}`;
+  };
+
   // Financial Handlers
   const handleSaveBankInfo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,7 +285,8 @@ export const Profile: React.FC = () => {
           </div>
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-2xl font-bold text-white mb-1">{currentUser.name}</h1>
-            <p className="text-gray-400 text-sm mb-4">{currentUser.role} • Membro desde 2024</p>
+            <p className="text-gray-400 text-sm mb-1">{currentUser.nickname} (Apelido)</p>
+            <p className="text-gray-500 text-xs mb-4">{currentUser.role} • Membro desde 2024</p>
             
             <div className="flex flex-wrap gap-6 justify-center md:justify-start bg-gray-900 p-4 rounded-lg border border-gray-700 inline-flex">
               <div className="text-center px-4 border-r border-gray-700 last:border-0">
@@ -530,6 +541,11 @@ export const Profile: React.FC = () => {
                               <p className="text-xs text-gray-400">
                                 {new Date(item.createdAt).toLocaleDateString()} • {item.userRole === 'BUYER' ? `De: ${item.sellerName}` : `Para: ${item.buyerName}`}
                               </p>
+                              {item.status === 'CONCLUÍDO' && (
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                  Doc {item.userRole === 'BUYER' ? 'Vendedor' : 'Comprador'}: {maskDocument(item.userRole === 'BUYER' ? item.sellerDocument : item.buyerDocument)}
+                                </p>
+                              )}
                             </div>
                          </div>
                          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
