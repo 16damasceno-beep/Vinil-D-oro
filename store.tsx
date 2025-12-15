@@ -16,7 +16,7 @@ interface StoreContextType {
   logout: () => void;
   addToCatalog: (item: CatalogItem) => void;
   addListing: (listing: Listing) => void;
-  updateListing: (listing: Listing) => void; // Nova função
+  updateListing: (listing: Listing) => void; 
   buyListing: (listingId: string, method: 'PICKUP' | 'SHIPPING') => void;
   markAsShipped: (listingId: string, trackingCode: string) => void;
   confirmReceipt: (listingId: string) => void;
@@ -38,9 +38,11 @@ interface StoreContextType {
   // Auth Recovery
   requestPasswordReset: (email: string) => boolean;
   completePasswordReset: (email: string, newPassword: string) => void;
-  // Admin Functions
+  // Admin & User Management Functions
   deleteUser: (userId: string) => void;
   deleteListing: (listingId: string) => void;
+  updateUser: (updatedUser: User) => void; // New
+  adminCreateUser: (newUser: User) => void; // New
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -342,6 +344,24 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     setUsers([...users, userWithAuth]);
     sendValidationEmail(userWithAuth, verificationToken);
+  };
+
+  const adminCreateUser = (newUser: User) => {
+    const exists = users.find(u => u.email === newUser.email || u.cpf === newUser.cpf);
+    if (exists) {
+      alert("Usuário com este email ou CPF/CNPJ já existe.");
+      return;
+    }
+    // Admin created users are auto-verified
+    const verifiedUser: User = {
+      ...newUser,
+      isVerified: true
+    };
+    setUsers([...users, verifiedUser]);
+  };
+
+  const updateUser = (updatedUser: User) => {
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
   };
 
   const verifyAccount = (email: string, token: string, newPassword: string): boolean => {
@@ -1020,6 +1040,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       depositFunds,
       deleteUser,
       deleteListing,
+      updateUser,
+      adminCreateUser,
       requestPasswordReset,
       completePasswordReset
     }}>

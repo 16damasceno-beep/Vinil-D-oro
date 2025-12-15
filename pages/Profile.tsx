@@ -24,6 +24,7 @@ export const Profile: React.FC = () => {
     updateUserFinancials,
     depositFunds,
     deleteListing,
+    updateUser, // Imported for self-edit
     catalog // Need catalog to check ItemType in reservations
   } = useStore();
   
@@ -48,6 +49,12 @@ export const Profile: React.FC = () => {
   // Modal State
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<{id: string, name: string, listingId: string, type: 'BUYER' | 'SELLER'} | null>(null);
+
+  // Edit Profile Modal
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [editProfileForm, setEditProfileForm] = useState({
+    name: '', nickname: '', phone: '', address: '', password: ''
+  });
 
   // Receipt Modal State
   const [receiptData, setReceiptData] = useState<{listing: EnrichedListing, role: 'BUYER' | 'SELLER'} | null>(null);
@@ -135,6 +142,35 @@ export const Profile: React.FC = () => {
       navigator.clipboard.writeText(shareData.url);
       alert("Link de cadastro copiado! Envie para seus amigos.");
     }
+  };
+
+  // Profile Edit Handlers
+  const openEditProfile = () => {
+    setEditProfileForm({
+      name: currentUser.name,
+      nickname: currentUser.nickname,
+      phone: currentUser.phone,
+      address: currentUser.address,
+      password: ''
+    });
+    setIsEditProfileModalOpen(true);
+  };
+
+  const handleUpdateProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    updateUser({
+      ...currentUser,
+      name: editProfileForm.name,
+      nickname: editProfileForm.nickname,
+      phone: editProfileForm.phone,
+      address: editProfileForm.address,
+      password: editProfileForm.password ? editProfileForm.password : currentUser.password
+    });
+    
+    setIsEditProfileModalOpen(false);
+    alert("Perfil atualizado com sucesso!");
   };
 
   // Masking Logic
@@ -310,6 +346,41 @@ export const Profile: React.FC = () => {
           targetName={reviewTarget.name}
           type={reviewTarget.type}
         />
+      )}
+
+      {/* Edit Profile Modal */}
+      {isEditProfileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4">
+          <div className="bg-gray-900 rounded-xl shadow-2xl max-w-md w-full border border-gray-700 p-6">
+            <h3 className="text-lg font-bold text-white mb-6 border-b border-gray-700 pb-2">Editar Meu Perfil</h3>
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Nome Completo</label>
+                <input type="text" value={editProfileForm.name} onChange={e => setEditProfileForm({...editProfileForm, name: e.target.value})} className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Apelido (Loja)</label>
+                <input type="text" value={editProfileForm.nickname} onChange={e => setEditProfileForm({...editProfileForm, nickname: e.target.value})} className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Telefone</label>
+                <input type="text" value={editProfileForm.phone} onChange={e => setEditProfileForm({...editProfileForm, phone: e.target.value})} className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Endereço</label>
+                <input type="text" value={editProfileForm.address} onChange={e => setEditProfileForm({...editProfileForm, address: e.target.value})} className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Nova Senha (deixe em branco para manter)</label>
+                <input type="password" value={editProfileForm.password} onChange={e => setEditProfileForm({...editProfileForm, password: e.target.value})} placeholder="******" className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setIsEditProfileModalOpen(false)} className="flex-1 bg-gray-700 text-white py-2 rounded font-bold">Cancelar</button>
+                <button type="submit" className="flex-1 bg-vinyl-accent text-black py-2 rounded font-bold hover:bg-yellow-600">Salvar</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Receipt Modal */}
@@ -507,7 +578,14 @@ export const Profile: React.FC = () => {
       <div className="max-w-5xl mx-auto">
         
         {/* Header with Stats */}
-        <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700 mb-6 flex flex-col md:flex-row items-center gap-8">
+        <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700 mb-6 flex flex-col md:flex-row items-center gap-8 relative">
+          <button 
+            onClick={openEditProfile} 
+            className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-xs border border-gray-600 transition"
+          >
+            ✏️ Editar Perfil
+          </button>
+
           <div className="w-24 h-24 bg-gradient-to-br from-vinyl-accent to-yellow-200 rounded-full flex items-center justify-center text-3xl font-bold text-black shadow-lg shadow-yellow-900/50">
             {currentUser.name.charAt(0)}
           </div>
