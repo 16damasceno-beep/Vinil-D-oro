@@ -47,6 +47,26 @@ export const Navbar: React.FC = () => {
     // No need to close manualy, store updates will trigger re-render
   };
 
+  const handleShareApp = async () => {
+    const shareData = {
+      title: "Vinil D'oro",
+      text: "Venha comprar e vender vinis e equipamentos no Vinil D'oro! Cadastre-se agora.",
+      url: window.location.origin
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.log('Error sharing', err);
+      }
+    } else {
+      navigator.clipboard.writeText(shareData.url);
+      alert("Link de acesso copiado para a área de transferência! Envie para seus amigos.");
+    }
+    setIsOpen(false);
+  };
+
   return (
     <nav className="bg-vinyl-groove border-b border-gray-800 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -106,6 +126,18 @@ export const Navbar: React.FC = () => {
           </div>
           <div className="hidden md:block">
             <div className="ml-4 flex items-center md:ml-6 gap-4">
+              
+              {/* Share Button (Desktop) */}
+              <button 
+                onClick={handleShareApp}
+                className="text-gray-400 hover:text-vinyl-accent relative group" 
+                title="Compartilhar Link de Acesso"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              </button>
+
               {currentUser ? (
                 <>
                   {/* Favorites Link */}
@@ -229,6 +261,15 @@ export const Navbar: React.FC = () => {
             {isAdminOrAttendant && (
                <Link to="/admin" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-md text-base font-bold text-red-400 bg-red-900/10">Painel {currentUser?.role}</Link>
             )}
+            
+            {/* Mobile Share Button */}
+            <button 
+              onClick={handleShareApp} 
+              className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-vinyl-accent hover:text-white hover:bg-gray-700 border border-vinyl-accent/20 bg-vinyl-accent/10 mb-2"
+            >
+              Compartilhar Link de Acesso 🔗
+            </button>
+
             {currentUser ? (
               <>
                  <Link to="/favorites" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-gray-700">Favoritos</Link>

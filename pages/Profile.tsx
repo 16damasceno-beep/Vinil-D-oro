@@ -118,6 +118,25 @@ export const Profile: React.FC = () => {
     }
   };
 
+  const handleShareInvite = async () => {
+    const shareData = {
+      title: "Convite Vinil D'oro",
+      text: `Olá! Estou usando o Vinil D'oro para negociar meus discos. Cadastre-se e confira minha coleção!`,
+      url: window.location.origin
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.log('User cancelled share');
+      }
+    } else {
+      navigator.clipboard.writeText(shareData.url);
+      alert("Link de cadastro copiado! Envie para seus amigos.");
+    }
+  };
+
   // Masking Logic
   const maskDocument = (doc?: string) => {
     if (!doc) return 'N/A';
@@ -352,7 +371,7 @@ export const Profile: React.FC = () => {
                       <span className="text-xl grayscale group-hover:grayscale-0">💠</span>
                       <div>
                         <p className="font-bold text-white text-sm">PIX</p>
-                        <p className="text-[10px] text-gray-500">Aprovação imediata</p>
+                        <p className="text-xs text-gray-500">Aprovação imediata</p>
                       </div>
                     </button>
 
@@ -510,16 +529,30 @@ export const Profile: React.FC = () => {
           </div>
           
           {/* Wallet Display for Everyone */}
-           <div className="bg-gray-900 p-4 rounded-lg border border-gray-700 min-w-[220px] text-center flex flex-col justify-between">
-             <div>
-               <span className="text-gray-400 text-xs uppercase block mb-1">Saldo em Carteira</span>
-               <span className="text-vinyl-gold font-bold text-2xl">R$ {currentUser.walletBalance.toFixed(2)}</span>
+           <div className="flex flex-col gap-2">
+             <div className="bg-gray-900 p-4 rounded-lg border border-gray-700 min-w-[220px] text-center flex flex-col justify-between">
+               <div>
+                 <span className="text-gray-400 text-xs uppercase block mb-1">Saldo em Carteira</span>
+                 <span className="text-vinyl-gold font-bold text-2xl">R$ {currentUser.walletBalance.toFixed(2)}</span>
+               </div>
+               <button 
+                 onClick={openDepositModal}
+                 className="mt-3 text-xs bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded border border-gray-600 font-bold transition"
+               >
+                 + Adicionar Saldo
+               </button>
              </div>
+             
+             {/* Share Invite Card */}
              <button 
-               onClick={openDepositModal}
-               className="mt-3 text-xs bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded border border-gray-600 font-bold transition"
+               onClick={handleShareInvite}
+               className="bg-gradient-to-r from-purple-900/50 to-blue-900/50 hover:from-purple-900/80 hover:to-blue-900/80 p-3 rounded-lg border border-purple-500/30 flex items-center justify-center gap-2 group transition"
              >
-               + Adicionar Saldo
+                <span className="text-xl group-hover:scale-110 transition">🚀</span>
+                <div className="text-left">
+                   <p className="text-white font-bold text-xs">Convide Amigos</p>
+                   <p className="text-[10px] text-gray-400">Compartilhar link de acesso</p>
+                </div>
              </button>
            </div>
         </div>
