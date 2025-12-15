@@ -32,14 +32,17 @@ export const Profile: React.FC = () => {
   
   // Financial Form States
   const [bankForm, setBankForm] = useState<Partial<BankInfo>>(currentUser?.bankInfo || { accountType: 'CORRENTE' });
-  const [isEditingBank, setIsEditingBank] = useState(false); // Controls visibility of bank form vs masked view
+  const [isEditingBank, setIsEditingBank] = useState(false); 
   const [cardForm, setCardForm] = useState({ holderName: '', number: '', expiry: '', cvv: '' });
   
   // Deposit State & Flow
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
-  const [depositStep, setDepositStep] = useState<'AMOUNT' | 'METHOD' | 'PROCESSING' | 'SUCCESS'>('AMOUNT');
+  const [depositStep, setDepositStep] = useState<'AMOUNT' | 'METHOD' | 'PAYMENT_ACTION' | 'PROCESSING' | 'SUCCESS'>('AMOUNT');
   const [selectedDepositMethod, setSelectedDepositMethod] = useState<string>('');
+  
+  // Temporary state for new card in deposit flow
+  const [depositCardForm, setDepositCardForm] = useState({ holderName: '', number: '', expiry: '', cvv: '' });
 
   // Modal State
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -161,6 +164,7 @@ export const Profile: React.FC = () => {
     setDepositAmount('');
     setDepositStep('AMOUNT');
     setSelectedDepositMethod('');
+    setDepositCardForm({ holderName: '', number: '', expiry: '', cvv: '' });
     setIsDepositModalOpen(true);
   };
 
@@ -172,17 +176,42 @@ export const Profile: React.FC = () => {
     setDepositStep('METHOD');
   };
 
+  const handleMethodSelect = (method: string) => {
+    setSelectedDepositMethod(method);
+    setDepositStep('PAYMENT_ACTION');
+  };
+
   const handleDepositProcess = () => {
-    if (!selectedDepositMethod) return alert("Selecione um método de pagamento.");
-    
+    // Validate Card if New Card selected
+    if (selectedDepositMethod === 'NEW_CARD') {
+       if (!depositCardForm.number || !depositCardForm.expiry || !depositCardForm.cvv || !depositCardForm.holderName) {
+         return alert("Preencha os dados do cartão.");
+       }
+       // Save card implicitly for this user session mock or just proceed
+       // Here we just proceed as if it was a one-time payment
+    }
+
     setDepositStep('PROCESSING');
     
     // Simulate Bank/Card Processing Time
     setTimeout(() => {
       const amount = parseFloat(depositAmount);
+      
+      // If using new card, maybe we want to save it? For now, let's just deposit.
+      if (selectedDepositMethod === 'NEW_CARD') {
+         const newCard: PaymentMethod = {
+            id: `pm-${Date.now()}`,
+            type: 'CREDIT_CARD',
+            last4: depositCardForm.number.slice(-4),
+            brand: 'Mastercard',
+            holderName: depositCardForm.holderName
+         };
+         updateUserFinancials(undefined, newCard);
+      }
+
       depositFunds(amount);
       setDepositStep('SUCCESS');
-    }, 2500);
+    }, 3000);
   };
 
   const openReviewModal = (listing: EnrichedListing, type: 'BUYER' | 'SELLER') => {
@@ -269,7 +298,7 @@ export const Profile: React.FC = () => {
         />
       )}
 
-      {/* Deposit Modal (New Payment Flow) */}
+      {/* Deposit Modal (Enhanced Payment Flow) */}
       {isDepositModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]">
            <div className="bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full border border-gray-700 p-6 relative">
@@ -299,66 +328,146 @@ export const Profile: React.FC = () => {
                     onClick={handleDepositNext}
                     className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded transition"
                   >
-                    Continuar para Pagamento
+                    Selecionar Pagamento
                   </button>
                 </div>
               )}
 
-              {/* Step 2: Payment Method */}
+              {/* Step 2: Payment Method Selection */}
               {depositStep === 'METHOD' && (
                 <div className="animate-[fadeIn_0.3s]">
                   <p className="text-gray-400 text-sm mb-4">Valor a creditar: <span className="text-white font-bold">R$ {parseFloat(depositAmount).toFixed(2)}</span></p>
                   
-                  <p className="text-xs font-bold text-gray-500 uppercase mb-2">Selecione a forma de pagamento</p>
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-2">Como deseja pagar?</p>
                   <div className="space-y-2 mb-6">
                     <button 
-                      onClick={() => setSelectedDepositMethod('PIX')}
-                      className={`w-full p-3 rounded border text-left flex items-center gap-3 transition ${selectedDepositMethod === 'PIX' ? 'bg-vinyl-accent/10 border-vinyl-accent text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                      onClick={() => handleMethodSelect('PIX')}
+                      className="w-full p-3 rounded border border-gray-700 bg-gray-900 hover:border-vinyl-accent text-left flex items-center gap-3 transition group"
                     >
-                      <span>💠</span>
+                      <span className="text-xl grayscale group-hover:grayscale-0">💠</span>
                       <div>
-                        <p className="font-bold text-sm">PIX (Instantâneo)</p>
+                        <p className="font-bold text-white text-sm">PIX</p>
+                        <p className="text-[10px] text-gray-500">Aprovação imediata</p>
                       </div>
                     </button>
 
                     {currentUser.savedPaymentMethods && currentUser.savedPaymentMethods.map(pm => (
                       <button 
                         key={pm.id}
-                        onClick={() => setSelectedDepositMethod(pm.id)}
-                        className={`w-full p-3 rounded border text-left flex items-center gap-3 transition ${selectedDepositMethod === pm.id ? 'bg-vinyl-accent/10 border-vinyl-accent text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                        onClick={() => handleMethodSelect(pm.id)}
+                        className="w-full p-3 rounded border border-gray-700 bg-gray-900 hover:border-vinyl-accent text-left flex items-center gap-3 transition group"
                       >
-                        <span>💳</span>
+                        <span className="text-xl">💳</span>
                         <div>
-                          <p className="font-bold text-sm">{pm.brand} •••• {pm.last4}</p>
-                          <p className="text-[10px]">Crédito</p>
+                          <p className="font-bold text-white text-sm">{pm.brand} •••• {pm.last4}</p>
+                          <p className="text-[10px] text-gray-500">{pm.holderName}</p>
                         </div>
                       </button>
                     ))}
-                    
-                    {(!currentUser.savedPaymentMethods || currentUser.savedPaymentMethods.length === 0) && (
-                       <p className="text-xs text-yellow-600 text-center bg-yellow-900/10 p-2 rounded">
-                         Cadastre um cartão na aba Financeiro para usar crédito.
-                       </p>
-                    )}
+
+                    <button 
+                      onClick={() => handleMethodSelect('NEW_CARD')}
+                      className="w-full p-3 rounded border border-gray-700 bg-gray-900 hover:border-vinyl-accent text-left flex items-center gap-3 transition group"
+                    >
+                      <span className="text-xl text-gray-500 group-hover:text-white">+</span>
+                      <div>
+                        <p className="font-bold text-white text-sm">Novo Cartão de Crédito</p>
+                        <p className="text-[10px] text-gray-500">Adicionar e pagar</p>
+                      </div>
+                    </button>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button onClick={() => setDepositStep('AMOUNT')} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded">Voltar</button>
-                    <button onClick={handleDepositProcess} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded">Pagar e Creditar</button>
-                  </div>
+                  <button onClick={() => setDepositStep('AMOUNT')} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded">Voltar</button>
                 </div>
               )}
 
-              {/* Step 3: Processing */}
+              {/* Step 3: Payment Action (Enter Details or Pay) */}
+              {depositStep === 'PAYMENT_ACTION' && (
+                <div className="animate-[fadeIn_0.3s]">
+                   {selectedDepositMethod === 'PIX' ? (
+                     <div className="text-center">
+                        <p className="text-white font-bold mb-2">Escaneie o QR Code</p>
+                        <div className="bg-white p-2 rounded inline-block mb-4">
+                           <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=00020101021226580014br.gov.bcb.pix${Date.now()}`} alt="QR Code PIX" />
+                        </div>
+                        <p className="text-xs text-gray-400 mb-2">Ou copie a chave abaixo:</p>
+                        <div className="bg-gray-900 p-2 rounded border border-gray-700 text-xs text-gray-300 break-all font-mono mb-4">
+                           00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000
+                        </div>
+                        <p className="text-xs text-yellow-500 mb-4 bg-yellow-900/10 p-2 rounded">
+                          Atenção: Faça a transferência exata de <strong>R$ {parseFloat(depositAmount).toFixed(2)}</strong> para validar.
+                        </p>
+                        <div className="flex gap-2">
+                           <button onClick={() => setDepositStep('METHOD')} className="flex-1 bg-gray-700 text-white font-bold py-2 rounded text-sm">Voltar</button>
+                           <button onClick={handleDepositProcess} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded text-sm">Confirmar Pagamento</button>
+                        </div>
+                     </div>
+                   ) : selectedDepositMethod === 'NEW_CARD' ? (
+                     <div>
+                        <h4 className="text-white font-bold mb-4">Dados do Cartão</h4>
+                        <div className="space-y-3 mb-4">
+                           <input 
+                             type="text" 
+                             placeholder="Nome no Cartão"
+                             value={depositCardForm.holderName}
+                             onChange={e => setDepositCardForm({...depositCardForm, holderName: e.target.value})}
+                             className="w-full bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm"
+                           />
+                           <input 
+                             type="text" 
+                             placeholder="Número do Cartão"
+                             maxLength={16}
+                             value={depositCardForm.number}
+                             onChange={e => setDepositCardForm({...depositCardForm, number: e.target.value})}
+                             className="w-full bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm"
+                           />
+                           <div className="flex gap-2">
+                              <input 
+                                type="text" 
+                                placeholder="MM/AA"
+                                maxLength={5}
+                                value={depositCardForm.expiry}
+                                onChange={e => setDepositCardForm({...depositCardForm, expiry: e.target.value})}
+                                className="flex-1 bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm"
+                              />
+                              <input 
+                                type="text" 
+                                placeholder="CVV"
+                                maxLength={3}
+                                value={depositCardForm.cvv}
+                                onChange={e => setDepositCardForm({...depositCardForm, cvv: e.target.value})}
+                                className="w-20 bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm"
+                              />
+                           </div>
+                        </div>
+                        <div className="flex gap-2">
+                           <button onClick={() => setDepositStep('METHOD')} className="flex-1 bg-gray-700 text-white font-bold py-2 rounded text-sm">Voltar</button>
+                           <button onClick={handleDepositProcess} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded text-sm">Pagar R$ {parseFloat(depositAmount).toFixed(2)}</button>
+                        </div>
+                     </div>
+                   ) : (
+                     // Saved Card Confirmation
+                     <div className="text-center">
+                        <p className="text-gray-400 mb-4">Confirmar pagamento com cartão final <span className="text-white font-bold">{currentUser.savedPaymentMethods?.find(c => c.id === selectedDepositMethod)?.last4}</span>?</p>
+                        <div className="flex gap-2">
+                           <button onClick={() => setDepositStep('METHOD')} className="flex-1 bg-gray-700 text-white font-bold py-2 rounded text-sm">Voltar</button>
+                           <button onClick={handleDepositProcess} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded text-sm">Confirmar</button>
+                        </div>
+                     </div>
+                   )}
+                </div>
+              )}
+
+              {/* Step 4: Processing */}
               {depositStep === 'PROCESSING' && (
                 <div className="text-center py-8 animate-[fadeIn_0.3s]">
                    <div className="w-16 h-16 border-4 border-gray-700 border-t-vinyl-accent rounded-full animate-spin mx-auto mb-4"></div>
-                   <p className="text-white font-bold">Processando Pagamento...</p>
-                   <p className="text-gray-500 text-xs mt-2">Validando transação bancária segura.</p>
+                   <p className="text-white font-bold">Processando Transação Bancária...</p>
+                   <p className="text-gray-500 text-xs mt-2">Aguardando confirmação do banco.</p>
                 </div>
               )}
 
-              {/* Step 4: Success */}
+              {/* Step 5: Success */}
               {depositStep === 'SUCCESS' && (
                 <div className="text-center py-4 animate-[fadeIn_0.3s]">
                    <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg shadow-green-900/50">✓</div>
