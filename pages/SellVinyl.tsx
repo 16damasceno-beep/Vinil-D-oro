@@ -36,7 +36,7 @@ export const SellVinyl: React.FC = () => {
   // Delivery Options
   const [allowPickup, setAllowPickup] = useState(true);
   const [allowShipping, setAllowShipping] = useState(true);
-  const [shippingCost, setShippingCost] = useState('');
+  // Shipping cost removed from registration as requested
 
   if (!currentUser) {
     return <div className="p-8 text-center text-white">Por favor, faça login para vender.</div>;
@@ -103,7 +103,6 @@ export const SellVinyl: React.FC = () => {
     e.preventDefault();
     if (!selectedCatalogItem || !price) return;
     if (!allowPickup && !allowShipping) return alert("Selecione pelo menos uma forma de entrega.");
-    if (allowShipping && !shippingCost) return alert("Defina o valor do frete para envio.");
 
     // Process images (Mocking file upload to URL)
     const mockImageUrls = imageFiles && imageFiles.length > 0 
@@ -122,7 +121,7 @@ export const SellVinyl: React.FC = () => {
       createdAt: new Date().toISOString(),
       allowPickup,
       allowShipping,
-      shippingCost: allowShipping ? parseFloat(shippingCost) : undefined
+      shippingCost: undefined // Set as undefined to indicate "To be agreed"
     };
 
     addListing(newListing);
@@ -332,16 +331,9 @@ export const SellVinyl: React.FC = () => {
                  
                  {allowShipping && (
                    <div className="ml-6 animate-[fadeIn_0.3s]">
-                     <label className="block text-xs font-bold text-gray-500 mb-1">Valor do Frete / Envio (R$)</label>
-                     <input 
-                       type="number" 
-                       step="0.01"
-                       value={shippingCost}
-                       onChange={e => setShippingCost(e.target.value)}
-                       placeholder="Ex: 20.00"
-                       className="w-full bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm focus:border-vinyl-accent outline-none"
-                     />
-                     <p className="text-[10px] text-gray-500 mt-1">Defina um valor fixo ou estimado. Este valor será cobrado do comprador no checkout.</p>
+                     <p className="text-sm text-yellow-500 italic">
+                        O valor do frete deverá ser combinado diretamente com o comprador após a venda, pois depende do endereço de entrega.
+                     </p>
                    </div>
                  )}
                </div>

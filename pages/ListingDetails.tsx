@@ -54,7 +54,11 @@ export const ListingDetails: React.FC = () => {
     const shipping = selectedMethod === 'SHIPPING' ? (listing.shippingCost || 0) : 0;
     const total = listing.price + shipping;
 
-    if (confirm(`Confirmar compra?\n\nItem: R$ ${listing.price.toFixed(2)}\nEntrega: R$ ${shipping.toFixed(2)}\nTOTAL: R$ ${total.toFixed(2)}\n\nO valor ficará retido até você confirmar o recebimento.`)) {
+    const shippingMsg = selectedMethod === 'SHIPPING' && !listing.shippingCost 
+      ? "\n\nIMPORTANTE: O valor do frete NÃO está incluído e deve ser combinado/pago diretamente ao vendedor."
+      : `\nEntrega: R$ ${shipping.toFixed(2)}`;
+
+    if (confirm(`Confirmar compra?\n\nItem: R$ ${listing.price.toFixed(2)}${shippingMsg}\n\nO valor do PRODUTO ficará retido até você confirmar o recebimento.`)) {
       buyListing(listing.id, selectedMethod);
       navigate('/profile'); 
     }
@@ -125,7 +129,9 @@ export const ListingDetails: React.FC = () => {
                           <p className="font-bold text-white">Envio / Frete</p>
                           <p className="text-xs text-gray-400">Correios, Uber, Motoboy</p>
                         </div>
-                        <span className="text-white font-bold text-sm">R$ {listing.shippingCost?.toFixed(2)}</span>
+                        <span className="text-white font-bold text-sm">
+                           {listing.shippingCost ? `R$ ${listing.shippingCost.toFixed(2)}` : 'A Combinar'}
+                        </span>
                      </div>
                    )}
                 </div>
@@ -138,12 +144,17 @@ export const ListingDetails: React.FC = () => {
                  </div>
                  <div className="flex justify-between text-gray-400 text-sm mb-2">
                    <span>Entrega:</span>
-                   <span>R$ {selectedMethod === 'SHIPPING' ? listing.shippingCost?.toFixed(2) : '0.00'}</span>
+                   <span>{selectedMethod === 'SHIPPING' && !listing.shippingCost ? 'Direto com vendedor' : `R$ ${(selectedMethod === 'SHIPPING' ? (listing.shippingCost || 0) : 0).toFixed(2)}`}</span>
                  </div>
                  <div className="flex justify-between text-white font-bold text-lg border-t border-gray-700 pt-2">
-                   <span>Total:</span>
+                   <span>Total (Plataforma):</span>
                    <span>R$ {(listing.price + (selectedMethod === 'SHIPPING' ? (listing.shippingCost || 0) : 0)).toFixed(2)}</span>
                  </div>
+                 {selectedMethod === 'SHIPPING' && !listing.shippingCost && (
+                    <p className="text-xs text-yellow-500 mt-2 text-center bg-yellow-900/20 p-2 rounded">
+                       Atenção: Você pagará agora apenas pelo disco. O valor do frete deverá ser combinado e pago diretamente ao vendedor.
+                    </p>
+                 )}
               </div>
 
               <div className="flex gap-3">
@@ -212,7 +223,11 @@ export const ListingDetails: React.FC = () => {
                <p className="text-xs text-gray-500 uppercase font-bold mb-2">Opções de Entrega</p>
                <div className="flex gap-4 text-sm">
                   {listing.allowPickup && <span className="flex items-center text-green-400">✓ Retirada</span>}
-                  {listing.allowShipping && <span className="flex items-center text-blue-400">✓ Envio (+ R$ {listing.shippingCost?.toFixed(2)})</span>}
+                  {listing.allowShipping && (
+                     <span className="flex items-center text-blue-400">
+                        ✓ Envio ({listing.shippingCost ? `+ R$ ${listing.shippingCost.toFixed(2)}` : 'A Combinar'})
+                     </span>
+                  )}
                </div>
             </div>
             
