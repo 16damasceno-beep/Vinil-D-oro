@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType } from './types';
-import { sendSaleNotification, sendReservationRequestNotification, sendReservationDecisionNotification, sendPasswordResetEmail } from './services/notificationService';
+import { sendSaleNotification, sendReservationRequestNotification, sendReservationDecisionNotification, sendPasswordResetEmail, sendValidationEmail } from './services/notificationService';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -12,6 +12,7 @@ interface StoreContextType {
   reservations: Reservation[];
   login: (email: string, password?: string) => void;
   register: (user: User) => void;
+  verifyAccount: (email: string, token: string, newPassword: string) => boolean;
   logout: () => void;
   addToCatalog: (item: CatalogItem) => void;
   addListing: (listing: Listing) => void;
@@ -130,7 +131,8 @@ const INITIAL_USERS: User[] = [
     buyerReviewCount: 1,
     favorites: [],
     notifications: [],
-    savedPaymentMethods: []
+    savedPaymentMethods: [],
+    isVerified: true
   },
   {
     id: 'u2',
@@ -156,7 +158,8 @@ const INITIAL_USERS: User[] = [
       agency: '1234',
       accountNumber: '56789-0',
       pixKey: 'maria@example.com'
-    }
+    },
+    isVerified: true
   },
   {
     id: 'admin1',
@@ -175,7 +178,8 @@ const INITIAL_USERS: User[] = [
     buyerReviewCount: 0,
     favorites: [],
     notifications: [],
-    savedPaymentMethods: []
+    savedPaymentMethods: [],
+    isVerified: true
   }
 ];
 
@@ -304,6 +308,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return;
     }
 
+    if (!user.isVerified) {
+      alert('Sua conta ainda não foi ativada. Verifique seu e-mail para validar o cadastro.');
+      return;
+    }
+
     if (user.password && user.password !== password) {
       alert('Senha incorreta.');
       return;
@@ -318,8 +327,45 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       alert("Usuário com este email ou CPF/CNPJ já existe.");
       return;
     }
-    setUsers([...users, newUser]);
-    setCurrentUser(newUser);
+
+    // Generate Verification Token & Provisional Password Logic
+    const verificationToken = Math.random().toString(36).substring(2, 15);
+    const provisionalPassword = "PROVISIONAL-" + Date.now(); // Internal placeholder
+
+    const userWithAuth: User = {
+      ...newUser,
+      password: provisionalPassword,
+      isVerified: false,
+      verificationToken
+    };
+
+    setUsers([...users, userWithAuth]);
+    sendValidationEmail(userWithAuth, verificationToken);
+  };
+
+  const verifyAccount = (email: string, token: string, newPassword: string): boolean => {
+    const userIndex = users.findIndex(u => u.email === email);
+    
+    if (userIndex === -1) return false;
+    
+    const user = users[userIndex];
+    if (user.verificationToken !== token) return false;
+
+    // Update User
+    const updatedUser = {
+      ...user,
+      password: newPassword,
+      isVerified: true,
+      verificationToken: undefined // Clear token
+    };
+
+    const newUsersList = [...users];
+    newUsersList[userIndex] = updatedUser;
+    setUsers(newUsersList);
+    
+    // Log user in automatically
+    setCurrentUser(updatedUser);
+    return true;
   };
 
   const logout = () => setCurrentUser(null);
@@ -330,7 +376,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       sendPasswordResetEmail(user);
       return true;
     }
-    // For security, usually we don't say if user exists or not, but for this mock app:
     return false;
   };
 
@@ -951,6 +996,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       reservations,
       login,
       register,
+      verifyAccount,
       logout,
       addToCatalog,
       addListing,

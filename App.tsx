@@ -10,6 +10,7 @@ import { ListingDetails } from './pages/ListingDetails';
 import { Profile } from './pages/Profile';
 import { Login } from './pages/Login';
 import { ResetPassword } from './pages/ResetPassword';
+import { ValidateAccount } from './pages/ValidateAccount';
 import { Favorites } from './pages/Favorites';
 import { EditListing } from './pages/EditListing';
 import { ActivitySidebar } from './components/ActivitySidebar';
@@ -36,6 +37,7 @@ const App: React.FC = () => {
                 <Route path="/favorites" element={<Favorites />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/validate" element={<ValidateAccount />} />
                 <Route path="/admin" element={<AdminDashboard />} />
               </Routes>
             </div>

@@ -73,3 +73,26 @@ export const sendPasswordResetEmail = (user: User) => {
   // For usability in this demo environment, we alert the user to look at the console or just click the link we provide in alert
   alert(`(Simulação) E-mail de recuperação enviado para ${user.email}.\n\nPara testar, copie este link (também disponível no Console):\n\n${resetLink}`);
 };
+
+export const sendValidationEmail = (user: User, token: string) => {
+  // Construct the internal link (HashRouter format)
+  const validateLink = `${window.location.origin}${window.location.pathname}#/validate?email=${encodeURIComponent(user.email)}&token=${token}`;
+
+  const emailBody = `
+    Olá ${user.name},
+    
+    Bem-vindo ao Vinil D'oro! 
+    
+    Foi gerada uma senha provisória para o seu cadastro.
+    Para ativar sua conta e definir sua senha definitiva, clique no link abaixo:
+    
+    ${validateLink}
+  `;
+
+  console.log(`--- [MOCK EMAIL] Enviado para ${user.email} ---`);
+  console.log(`Assunto: Validação de Cadastro`);
+  console.log(`Corpo: ${emailBody}`);
+  
+  // For usability in this demo environment
+  alert(`(Simulação) E-mail de validação enviado para ${user.email}.\n\nPara ativar a conta, copie este link (disponível no Console):\n\n${validateLink}`);
+};

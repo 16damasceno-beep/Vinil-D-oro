@@ -22,13 +22,6 @@ export const Login: React.FC = () => {
   const [role, setRole] = useState<UserRole>('AMBOS');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const validatePassword = (pwd: string) => {
-    const minLength = 8;
-    const hasUpperCase = /[A-Z]/.test(pwd);
-    const hasNumber = /[0-9]/.test(pwd);
-    return pwd.length >= minLength && hasUpperCase && hasNumber;
-  }
-
   // Format CPF/CNPJ while typing
   const handleCpfCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
@@ -68,8 +61,8 @@ export const Login: React.FC = () => {
       if (!acceptedTerms) {
         return alert("Para prosseguir com o cadastro, você deve ler e aceitar o Termo de Responsabilidade.");
       }
-      // Mandatory Fields Check
-      if (!name.trim() || !nickname.trim() || !cpf.trim() || !address.trim() || !phone.trim() || !email.trim() || !password.trim()) {
+      // Mandatory Fields Check (Password removed from check)
+      if (!name.trim() || !nickname.trim() || !cpf.trim() || !address.trim() || !phone.trim() || !email.trim()) {
         return alert("Todos os campos são obrigatórios.");
       }
       
@@ -78,14 +71,10 @@ export const Login: React.FC = () => {
         return alert("CPF ou CNPJ inválido.");
       }
       
-      if (!validatePassword(password)) {
-        return alert("A senha deve conter no mínimo 8 dígitos, uma letra maiúscula e um número.");
-      }
-
       const newUser: User = {
         id: `u-${Date.now()}`,
         email,
-        password,
+        // password is set internally as provisional or empty initially
         name,
         nickname,
         cpf,
@@ -102,7 +91,9 @@ export const Login: React.FC = () => {
         buyerReviewCount: 0
       };
       register(newUser);
-      navigate('/profile');
+      // Don't navigate to profile, show success message and switch to login
+      alert("Cadastro iniciado! Uma senha provisória e um link de validação foram enviados para o seu e-mail. Verifique para ativar sua conta.");
+      setView('LOGIN');
     } else {
       // LOGIN
       if (!email || !password) return alert("Preencha email e senha.");
@@ -152,8 +143,8 @@ export const Login: React.FC = () => {
               />
             </div>
             
-            {/* Password Field - Hidden in Forgot View */}
-            {view !== 'FORGOT' && (
+            {/* Password Field - Only visible in LOGIN View */}
+            {view === 'LOGIN' && (
               <div>
                 <label htmlFor="password" className="sr-only">Senha</label>
                 <input
@@ -161,14 +152,11 @@ export const Login: React.FC = () => {
                   name="password"
                   type="password"
                   required
-                  className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm ${view === 'LOGIN' ? 'rounded-b-md' : ''}`}
+                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm"
                   placeholder="Senha"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />
-                {view === 'REGISTER' && (
-                  <p className="text-[10px] text-gray-400 p-2 bg-gray-800">Mínimo 8 caracteres, 1 maiúscula, 1 número.</p>
-                )}
               </div>
             )}
 
@@ -259,6 +247,10 @@ export const Login: React.FC = () => {
                     </p>
                   </div>
                 </div>
+                
+                <p className="text-xs text-yellow-500 mt-2 bg-yellow-900/10 p-2 rounded text-center">
+                  Após o cadastro, enviaremos um link para seu e-mail para que você crie sua senha definitiva.
+                </p>
               </>
             )}
           </div>
@@ -268,7 +260,7 @@ export const Login: React.FC = () => {
               type="submit"
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-md text-black bg-vinyl-accent hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
             >
-              {view === 'REGISTER' ? 'Aceitar e Cadastrar' : (view === 'FORGOT' ? 'Enviar Link de Recuperação' : 'Entrar')}
+              {view === 'REGISTER' ? 'Cadastrar e Validar E-mail' : (view === 'FORGOT' ? 'Enviar Link de Recuperação' : 'Entrar')}
             </button>
           </div>
           

@@ -88,6 +88,9 @@ export interface User {
   sellerReviewCount: number;
   buyerRating: number;
   buyerReviewCount: number;
+  // Verification Fields
+  isVerified?: boolean;
+  verificationToken?: string;
 }
 
 export interface CatalogItem {
