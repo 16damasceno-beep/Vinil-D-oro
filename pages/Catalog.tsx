@@ -1,20 +1,31 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../store';
-import { CatalogItem, Genre } from '../types';
+import { CatalogItem, Genre, ItemType } from '../types';
 import { Link } from 'react-router-dom';
 
 export const Catalog: React.FC = () => {
   const { catalog } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string>('Todos');
+  const [selectedType, setSelectedType] = useState<string>('Todos');
 
   const genres = ['Todos', ...Object.values(Genre)];
+  const itemTypes = ['Todos', ...Object.values(ItemType)];
 
   const filteredCatalog = catalog.filter((item: CatalogItem) => {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           item.artist.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGenre = selectedGenre === 'Todos' || item.genre === selectedGenre;
-    return matchesSearch && matchesGenre;
+    const matchesType = selectedType === 'Todos' || (item.itemType === selectedType || (!item.itemType && selectedType === ItemType.LP)); // Fallback legacy items to LP if needed or just filter exact
+    
+    // Improved logic: if item has no itemType, we assume it matches nothing specific OR we could assume VINYL/LP. 
+    // Let's go with exact match on property if present.
+    const typeCheck = selectedType === 'Todos' 
+       ? true 
+       : item.itemType === selectedType;
+
+    return matchesSearch && matchesGenre && typeCheck;
   });
 
   return (
@@ -31,13 +42,23 @@ export const Catalog: React.FC = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <select
-            className="bg-gray-800 text-white rounded-md px-4 py-2 border border-gray-700 focus:outline-none focus:border-vinyl-accent"
-            value={selectedGenre}
-            onChange={(e) => setSelectedGenre(e.target.value)}
-          >
-            {genres.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
+          <div className="flex gap-4">
+            <select
+              className="bg-gray-800 text-white rounded-md px-4 py-2 border border-gray-700 focus:outline-none focus:border-vinyl-accent"
+              value={selectedGenre}
+              onChange={(e) => setSelectedGenre(e.target.value)}
+            >
+              {genres.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+
+            <select
+              className="bg-gray-800 text-white rounded-md px-4 py-2 border border-gray-700 focus:outline-none focus:border-vinyl-accent"
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+            >
+              {itemTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Grid */}
@@ -48,7 +69,12 @@ export const Catalog: React.FC = () => {
               <div className="p-4">
                 <h3 className="font-bold text-white truncate">{item.title}</h3>
                 <p className="text-sm text-gray-400 truncate">{item.artist}</p>
-                <p className="text-xs text-gray-500 mt-1">{item.genre} • {item.year}</p>
+                <div className="flex flex-wrap gap-1 mt-2">
+                   <span className="text-[10px] bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">{item.genre}</span>
+                   <span className="text-[10px] bg-vinyl-accent/20 text-vinyl-accent border border-vinyl-accent/50 px-1.5 py-0.5 rounded">
+                     {item.itemType || 'Vinil'}
+                   </span>
+                </div>
                 <p className="text-xs text-gray-500 mt-2 line-clamp-2">{item.description}</p>
               </div>
             </div>
@@ -57,7 +83,7 @@ export const Catalog: React.FC = () => {
         
         {filteredCatalog.length === 0 && (
           <div className="text-center py-12 text-gray-500">
-            Nenhum álbum encontrado. Se você estiver vendendo, adicione-o ao catálogo!
+            Nenhum item encontrado.
           </div>
         )}
       </div>

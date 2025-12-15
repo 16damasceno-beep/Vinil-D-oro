@@ -1,5 +1,5 @@
 
-import { CatalogItem, Genre } from "../types";
+import { CatalogItem, Genre, ItemType } from "../types";
 
 const BASE_URL = 'https://api.discogs.com';
 
@@ -19,11 +19,25 @@ const mapGenre = (styles?: string[], genres?: string[]): Genre => {
   return Genre.OTHER;
 };
 
+// Helper to determine ItemType from Discogs format
+const mapFormatToItemType = (formats?: string[]): ItemType => {
+  if (!formats) return ItemType.VINYL;
+  const formatString = formats.join(' ').toLowerCase();
+
+  if (formatString.includes('cd')) return ItemType.CD;
+  if (formatString.includes('cassette') || formatString.includes('tape')) return ItemType.K7;
+  if (formatString.includes('7"')) return ItemType.SINGLE_7;
+  if (formatString.includes('12"')) return ItemType.SINGLE_12;
+  if (formatString.includes('lp')) return ItemType.LP;
+  
+  return ItemType.VINYL;
+};
+
 export const searchDiscogs = async (query: string, token: string): Promise<CatalogItem[]> => {
   if (!query || !token) return [];
 
   try {
-    const response = await fetch(`${BASE_URL}/database/search?q=${encodeURIComponent(query)}&type=release&format=vinyl&per_page=10`, {
+    const response = await fetch(`${BASE_URL}/database/search?q=${encodeURIComponent(query)}&type=release&per_page=10`, {
       headers: {
         'Authorization': `Discogs token=${token}`
       }
@@ -39,8 +53,10 @@ export const searchDiscogs = async (query: string, token: string): Promise<Catal
       artist: item.title.split(' - ')[0] || 'Desconhecido', // Discogs often returns "Artist - Title"
       title: item.title.split(' - ')[1] || item.title,
       genre: mapGenre(item.style, item.genre),
+      itemType: mapFormatToItemType(item.format),
       year: item.year ? parseInt(item.year) : undefined,
-      coverUrl: item.thumb || 'https://via.placeholder.com/400x400?text=No+Cover',
+      // CHANGE: Use cover_image for high quality, fall back to thumb
+      coverUrl: item.cover_image || item.thumb || 'https://via.placeholder.com/400x400?text=No+Cover',
       format: item.format ? item.format.join(', ') : 'Vinil',
       label: item.label ? item.label[0] : 'Desconhecido',
       description: `Importado do Discogs. ${item.format?.join(', ') || ''}.`

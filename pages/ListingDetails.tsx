@@ -19,36 +19,13 @@ export const ListingDetails: React.FC = () => {
   if (!listing || !seller) {
     return <div className="text-white text-center mt-20">Anúncio não encontrado.</div>;
   }
-
-  // Construct full image gallery: Main Catalog Cover is treated as index -1 logically, or userImages[0]
-  // Logic update: userImages[0] IS typically the catalog cover IF no user photos were added.
-  // But if user photos added, userImages are just the user photos.
-  // Let's combine them for display: [CatalogCover, ...UserImages] or just UserImages if they already include catalog cover logic?
-  // In SellVinyl.tsx, if userImages is empty, we use [catalogCover]. If not empty, it is ONLY user photos.
-  // So we should verify:
   
   const displayImages = [listing.catalogItem.coverUrl];
-  // Check if userImages[0] is different from catalog cover, if so, append all user images
   if (listing.userImages.length > 0 && listing.userImages[0] !== listing.catalogItem.coverUrl) {
     displayImages.push(...listing.userImages);
   } else if (listing.userImages.length > 1) {
-    // Case where first image IS catalog cover but there are more
     displayImages.push(...listing.userImages.slice(1));
   }
-  
-  // Note: displayImages[0] is always Catalog Cover.
-  // displayImages[1...n] are User Photos.
-  
-  // Current Main Image Logic
-  const currentMainImage = activeImageIndex === 0 
-    ? (listing.userImages.length > 0 && listing.userImages[0] !== listing.catalogItem.coverUrl ? listing.userImages[0] : listing.catalogItem.coverUrl) // Default logic was messy
-    : displayImages[activeImageIndex] || listing.catalogItem.coverUrl;
-
-  // Let's simplify:
-  // We want to show ALL unique images available.
-  // 1. Catalog Cover
-  // 2. Any User Uploaded Images
-  // We will build a unified array for the gallery.
   
   const galleryImages = [listing.catalogItem.coverUrl];
   listing.userImages.forEach(img => {
@@ -62,10 +39,8 @@ export const ListingDetails: React.FC = () => {
   const isSold = listing.status !== 'DISPONÍVEL' && listing.status !== 'RESERVADO';
   const isReserved = listing.status === 'RESERVADO';
   const isSoldOutside = listing.status === 'VENDIDO_FORA';
-  // Safe optional chaining
   const isFavorited = currentUser?.favorites?.includes(listing.id);
 
-  // Check if current user is the one who reserved it
   const isReservedByMe = isReserved && listing.activeReservation?.buyerId === currentUser?.id;
 
   const handleBuyClick = () => {
@@ -84,7 +59,6 @@ export const ListingDetails: React.FC = () => {
       return;
     }
 
-    // Set default selection based on availability
     if (listing.allowPickup && !listing.allowShipping) setSelectedMethod('PICKUP');
     else if (!listing.allowPickup && listing.allowShipping) setSelectedMethod('SHIPPING');
     
@@ -249,9 +223,12 @@ export const ListingDetails: React.FC = () => {
             <div className="flex flex-wrap gap-2 mt-2">
                <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{listing.catalogItem.genre}</span>
                <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{listing.catalogItem.year}</span>
-               {listing.catalogItem.format && (
-                 <span className="bg-gray-800 text-vinyl-accent px-2 py-1 rounded text-xs border border-gray-700 border-dashed">{listing.catalogItem.format}</span>
-               )}
+               <span className="bg-gray-800 text-vinyl-accent px-2 py-1 rounded text-xs border border-gray-700 border-dashed">
+                 {listing.catalogItem.itemType || listing.catalogItem.format || 'Vinil'}
+               </span>
+               <span className={`px-2 py-1 rounded text-xs font-bold border ${listing.productCondition === 'NOVO' ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>
+                  {listing.productCondition || 'USADO'}
+               </span>
             </div>
           </div>
 
@@ -344,12 +321,12 @@ export const ListingDetails: React.FC = () => {
               <h3 className="text-lg font-bold border-b border-gray-600 pb-2 mb-3 text-vinyl-accent">Ficha Técnica</h3>
               <div className="space-y-2 text-sm">
                  <div className="flex justify-between border-b border-gray-700 pb-1">
-                   <span className="text-gray-400">Gravadora / Selo:</span>
-                   <span className="text-white">{listing.catalogItem.label || 'Não informado'}</span>
+                   <span className="text-gray-400">Tipo de Item:</span>
+                   <span className="text-white font-bold">{listing.catalogItem.itemType || 'Vinil'}</span>
                  </div>
                  <div className="flex justify-between border-b border-gray-700 pb-1">
-                   <span className="text-gray-400">Formato:</span>
-                   <span className="text-white">{listing.catalogItem.format || 'Vinil'}</span>
+                   <span className="text-gray-400">Gravadora / Selo:</span>
+                   <span className="text-white">{listing.catalogItem.label || 'Não informado'}</span>
                  </div>
                  <div className="flex justify-between border-b border-gray-700 pb-1">
                    <span className="text-gray-400">Ano de Lançamento:</span>

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod } from './types';
+import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType } from './types';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -74,6 +74,7 @@ const INITIAL_CATALOG: CatalogItem[] = [
     artist: 'Pink Floyd',
     title: 'The Dark Side of the Moon',
     genre: Genre.ROCK,
+    itemType: ItemType.LP,
     year: 1973,
     coverUrl: 'https://picsum.photos/id/20/400/400',
     description: 'Uma obra-prima do rock progressivo focada em saúde mental, tempo e ganância.',
@@ -85,6 +86,7 @@ const INITIAL_CATALOG: CatalogItem[] = [
     artist: 'Miles Davis',
     title: 'Kind of Blue',
     genre: Genre.JAZZ,
+    itemType: ItemType.LP,
     year: 1959,
     coverUrl: 'https://picsum.photos/id/30/400/400',
     description: 'O disco de jazz mais vendido de todos os tempos, apresentando composições de jazz modal.',
@@ -96,6 +98,7 @@ const INITIAL_CATALOG: CatalogItem[] = [
     artist: 'Jorge Ben Jor',
     title: 'A Tábua de Esmeralda',
     genre: Genre.MPB,
+    itemType: ItemType.LP,
     year: 1974,
     coverUrl: 'https://picsum.photos/id/40/400/400',
     description: 'Um clássico do samba psicodélico misturando alquimia e violão acústico.',
@@ -174,6 +177,7 @@ const INITIAL_LISTINGS: Listing[] = [
     sellerId: 'u2',
     catalogItemId: 'c1',
     price: 150.00,
+    productCondition: 'USADO',
     condition: VinylCondition.VG_PLUS,
     description: 'Prensagem original, toca muito bem com pouco ruído de superfície.',
     userImages: ['https://picsum.photos/id/101/400/400'],

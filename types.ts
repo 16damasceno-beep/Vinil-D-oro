@@ -24,6 +24,19 @@ export enum Genre {
   OTHER = 'Outros'
 }
 
+export enum ItemType {
+  VINYL = 'Vinil',
+  K7 = 'K7',
+  SINGLE_12 = '12" Single',
+  SINGLE_7 = '7" Single',
+  LP = 'LP',
+  CD = 'CD',
+  SERATO = 'Serato',
+  EQUIPMENT = 'Equipamento'
+}
+
+export type ProductCondition = 'NOVO' | 'USADO';
+
 export type UserRole = 'COMPRADOR' | 'VENDEDOR' | 'AMBOS' | 'ADMIN' | 'ATENDENTE';
 
 export interface AppNotification {
@@ -53,21 +66,19 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  password?: string; // Added password field
+  password?: string;
   cpf: string;
   address: string;
   phone: string;
   role: UserRole;
   walletBalance: number;
-  favorites: string[]; // Array of Listing IDs
+  favorites: string[];
   notifications: AppNotification[];
-  // Financials
   bankInfo?: BankInfo;
   savedPaymentMethods: PaymentMethod[];
-  // Reputation
-  sellerRating: number; // 0 to 5
+  sellerRating: number;
   sellerReviewCount: number;
-  buyerRating: number; // 0 to 5
+  buyerRating: number;
   buyerReviewCount: number;
 }
 
@@ -76,12 +87,12 @@ export interface CatalogItem {
   artist: string;
   title: string;
   genre: Genre;
+  itemType: ItemType; // Novo campo
   coverUrl: string;
   year?: number;
   description?: string;
-  // Discogs Technical Data
-  format?: string; // e.g., "Vinyl, LP, Album"
-  label?: string;  // e.g., "Columbia"
+  format?: string;
+  label?: string;
   discogsId?: number;
 }
 
@@ -93,24 +104,19 @@ export interface Listing {
   buyerId?: string;
   catalogItemId: string;
   price: number;
-  condition: VinylCondition;
+  productCondition: ProductCondition; // Novo campo (Novo/Usado)
+  condition: VinylCondition; // Estado físico detalhado (VG, M, etc)
   description: string;
   userImages: string[];
   status: ListingStatus;
   trackingCode?: string;
   createdAt: string;
-  
-  // Delivery Options (Defined by Seller)
   allowPickup: boolean;
   allowShipping: boolean;
   shippingCost?: number;
-
-  // Transaction Data (Set upon Purchase)
   selectedDeliveryMethod?: 'PICKUP' | 'SHIPPING';
   finalShippingCost?: number;
   finalTotalPrice?: number;
-
-  // Review Flags
   sellerReviewedBuyer?: boolean;
   buyerReviewedSeller?: boolean;
 }
@@ -120,8 +126,8 @@ export interface Review {
   listingId: string;
   fromUserId: string;
   toUserId: string;
-  type: 'AVALIACAO_VENDEDOR' | 'AVALIACAO_COMPRADOR'; // Determines if we update sellerRating or buyerRating
-  rating: number; // 1-5
+  type: 'AVALIACAO_VENDEDOR' | 'AVALIACAO_COMPRADOR';
+  rating: number;
   comment: string;
   createdAt: string;
 }
@@ -134,8 +140,8 @@ export interface Reservation {
   buyerId: string;
   sellerId: string;
   status: ReservationStatus;
-  days: number; // Total days reserved
-  expiresAt?: string; // Set when approved
+  days: number;
+  expiresAt?: string;
   createdAt: string;
 }
 
@@ -143,5 +149,5 @@ export interface EnrichedListing extends Listing {
   catalogItem: CatalogItem;
   sellerName: string;
   buyerName?: string;
-  activeReservation?: Reservation; // If currently reserved
+  activeReservation?: Reservation;
 }

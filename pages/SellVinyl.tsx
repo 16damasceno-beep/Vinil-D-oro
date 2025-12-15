@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
-import { CatalogItem, Genre, VinylCondition, Listing } from '../types';
+import { CatalogItem, Genre, VinylCondition, Listing, ItemType, ProductCondition } from '../types';
 import { getAlbumDetails } from '../services/geminiService';
 import { searchDiscogs } from '../services/discogsService';
 import { useNavigate } from 'react-router-dom';
@@ -39,9 +39,9 @@ export const SellVinyl: React.FC = () => {
     artist: '',
     title: '',
     genre: Genre.ROCK,
+    itemType: ItemType.LP, // Default to LP
     year: '',
     description: '',
-    format: 'Vinil, LP',
     label: ''
   });
   const [manualCoverFile, setManualCoverFile] = useState<File | null>(null);
@@ -49,6 +49,7 @@ export const SellVinyl: React.FC = () => {
   // Step 2: Listing Details
   const [selectedCatalogItem, setSelectedCatalogItem] = useState<CatalogItem | null>(null);
   const [price, setPrice] = useState('');
+  const [productCondition, setProductCondition] = useState<ProductCondition>('USADO'); // Novo/Usado
   const [condition, setCondition] = useState<VinylCondition>(VinylCondition.VG);
   const [description, setDescription] = useState('');
   
@@ -108,6 +109,7 @@ export const SellVinyl: React.FC = () => {
          id: `c-ai-${Date.now()}`,
          ...aiResult,
          genre: aiResult.genre as Genre, 
+         itemType: ItemType.LP, // Default for AI results
          coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400`,
          format: 'Vinil',
          label: 'Desconhecido'
@@ -160,10 +162,11 @@ export const SellVinyl: React.FC = () => {
       artist: manualForm.artist,
       title: manualForm.title,
       genre: manualForm.genre,
+      itemType: manualForm.itemType,
       year: parseInt(manualForm.year),
       description: manualForm.description || 'Cadastrado pelo vendedor.',
       coverUrl: coverUrl,
-      format: manualForm.format,
+      format: manualForm.itemType, // Using ItemType as basic format
       label: manualForm.label
     };
 
@@ -181,7 +184,6 @@ export const SellVinyl: React.FC = () => {
         return;
       }
       
-      // Explicitly type as File[] to avoid 'unknown' type inference in some TS environments
       const filesArray: File[] = Array.from(e.target.files);
       
       try {
@@ -210,6 +212,7 @@ export const SellVinyl: React.FC = () => {
       sellerId: currentUser.id,
       catalogItemId: selectedCatalogItem.id,
       price: parseFloat(price),
+      productCondition,
       condition,
       description,
       userImages: finalUserImages,
@@ -228,7 +231,7 @@ export const SellVinyl: React.FC = () => {
     <div className="min-h-screen bg-vinyl-black py-8 px-4">
       <div className="max-w-4xl mx-auto bg-gray-900 rounded-lg p-6 shadow-xl border border-gray-800">
         <div className="flex justify-between items-center mb-6">
-           <h1 className="text-2xl font-bold text-white">Vender seu Vinil</h1>
+           <h1 className="text-2xl font-bold text-white">Vender seu Item</h1>
            {step === 1 && mode === 'SEARCH' && (
              <button onClick={() => setShowConfig(!showConfig)} className="text-xs text-vinyl-accent underline">
                Configurar Discogs
@@ -311,7 +314,7 @@ export const SellVinyl: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-white text-sm truncate">{item.title}</p>
                           <p className="text-vinyl-accent text-xs truncate">{item.artist}</p>
-                          <p className="text-gray-400 text-xs mt-1">{item.year} • {item.format || 'Vinil'}</p>
+                          <p className="text-gray-400 text-xs mt-1">{item.year} • {item.format || item.itemType || 'Vinil'}</p>
                           {item.label && <p className="text-gray-500 text-[10px] truncate">{item.label}</p>}
                           <button className="mt-2 text-[10px] bg-gray-600 hover:bg-green-600 text-white px-2 py-1 rounded w-full transition">
                             {searchSource === 'LOCAL' ? 'Selecionar' : 'Importar & Selecionar'}
@@ -361,7 +364,7 @@ export const SellVinyl: React.FC = () => {
                         />
                         <input 
                           type="text" 
-                          placeholder="Álbum"
+                          placeholder="Álbum/Nome"
                           required
                           className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
                           value={manualForm.title}
@@ -386,20 +389,28 @@ export const SellVinyl: React.FC = () => {
                         </select>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <input 
-                          type="text" 
-                          placeholder="Formato (ex: Vinil, LP, Duplo)"
-                          className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
-                          value={manualForm.format}
-                          onChange={e => setManualForm({...manualForm, format: e.target.value})}
-                        />
-                        <input 
-                          type="text" 
-                          placeholder="Selo / Gravadora"
-                          className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
-                          value={manualForm.label}
-                          onChange={e => setManualForm({...manualForm, label: e.target.value})}
-                        />
+                         {/* Item Type Selector */}
+                        <div className="flex flex-col">
+                            <label className="text-[10px] text-gray-500 font-bold mb-1 ml-1">Tipo de Item</label>
+                            <select 
+                              className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
+                              value={manualForm.itemType}
+                              onChange={e => setManualForm({...manualForm, itemType: e.target.value as ItemType})}
+                            >
+                              {Object.values(ItemType).map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                        </div>
+                        
+                        <div className="flex flex-col">
+                           <label className="text-[10px] text-gray-500 font-bold mb-1 ml-1">Selo / Marca</label>
+                            <input 
+                              type="text" 
+                              placeholder="Selo / Gravadora"
+                              className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
+                              value={manualForm.label}
+                              onChange={e => setManualForm({...manualForm, label: e.target.value})}
+                            />
+                        </div>
                       </div>
                    </div>
                 </div>
@@ -431,28 +442,35 @@ export const SellVinyl: React.FC = () => {
                 <p className="text-gray-400 text-sm">{selectedCatalogItem.artist}</p>
                 <div className="flex gap-2 mt-1">
                    <span className="text-[10px] bg-gray-700 text-white px-2 py-0.5 rounded">{selectedCatalogItem.year}</span>
-                   <span className="text-[10px] bg-gray-700 text-white px-2 py-0.5 rounded">{selectedCatalogItem.format}</span>
+                   <span className="text-[10px] bg-vinyl-accent/20 text-vinyl-accent border border-vinyl-accent/50 px-2 py-0.5 rounded">{selectedCatalogItem.itemType || selectedCatalogItem.format || 'Vinil'}</span>
                 </div>
-                <button type="button" onClick={() => setStep(1)} className="text-xs text-vinyl-accent hover:underline mt-2">← Escolher outro álbum</button>
+                <button type="button" onClick={() => setStep(1)} className="text-xs text-vinyl-accent hover:underline mt-2">← Escolher outro item</button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Estado de Conservação</label>
-                <select 
-                  value={condition} 
-                  onChange={(e) => setCondition(e.target.value as VinylCondition)}
-                  className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
-                >
-                  {Object.values(VinylCondition).map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                 <label className="block text-sm font-medium text-gray-400 mb-2">Condição do Produto</label>
+                 <div className="flex bg-gray-800 p-1 rounded border border-gray-700">
+                    <button 
+                       type="button"
+                       onClick={() => setProductCondition('NOVO')}
+                       className={`flex-1 py-2 text-sm font-bold rounded transition ${productCondition === 'NOVO' ? 'bg-vinyl-accent text-black' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      NOVO
+                    </button>
+                    <button 
+                       type="button"
+                       onClick={() => setProductCondition('USADO')}
+                       className={`flex-1 py-2 text-sm font-bold rounded transition ${productCondition === 'USADO' ? 'bg-vinyl-accent text-black' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      USADO
+                    </button>
+                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Preço do Vinil (R$)</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Preço (R$)</label>
                 <input 
                   type="number" 
                   step="0.01" 
@@ -462,6 +480,20 @@ export const SellVinyl: React.FC = () => {
                   className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
                 />
               </div>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Estado Físico Detalhado</label>
+                <select 
+                  value={condition} 
+                  onChange={(e) => setCondition(e.target.value as VinylCondition)}
+                  className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                >
+                  {Object.values(VinylCondition).map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-gray-500 mt-1">Classifique o estado da mídia/equipamento.</p>
             </div>
 
             {/* Delivery Options */}
@@ -491,7 +523,7 @@ export const SellVinyl: React.FC = () => {
 
             <div className="bg-gray-800 p-4 rounded border border-gray-700">
               <label className="block text-sm font-bold text-white mb-2">Fotos Reais do Produto</label>
-              <p className="text-xs text-gray-400 mb-3">Adicione fotos do seu item específico (riscos, detalhes da capa). A capa original do álbum será mantida como referência.</p>
+              <p className="text-xs text-gray-400 mb-3">Adicione fotos do seu item específico (riscos, detalhes da capa). A capa original do catálogo será mantida como referência.</p>
               
               <div className="flex flex-col gap-4">
                  <label className="cursor-pointer bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm text-center border border-gray-600 transition w-full md:w-auto">
