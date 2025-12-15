@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { CatalogItem, Genre, VinylCondition, Listing, ItemType, ProductCondition } from '../types';
-import { getAlbumDetails } from '../services/geminiService';
+import { getAlbumDetails, getEquipmentDetails } from '../services/geminiService';
 import { searchDiscogs } from '../services/discogsService';
 import { useNavigate } from 'react-router-dom';
 
@@ -25,6 +25,7 @@ export const SellVinyl: React.FC = () => {
   const [mode, setMode] = useState<'SEARCH' | 'MANUAL'>('SEARCH');
   
   // Search State
+  const [searchCategory, setSearchCategory] = useState<'MEDIA' | 'EQUIPMENT'>('MEDIA');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<CatalogItem[]>([]);
@@ -43,7 +44,9 @@ export const SellVinyl: React.FC = () => {
     year: '',
     description: '',
     label: '',
-    voltage: 'N/A'
+    voltage: 'N/A',
+    coverUrl: '', // URL String
+    imageSearchQuery: '' // To help user find images
   });
   const [manualCoverFile, setManualCoverFile] = useState<File | null>(null);
 
@@ -92,53 +95,127 @@ export const SellVinyl: React.FC = () => {
     setSearchResults([]);
     setSearchSource(null);
 
-    // 1. Search Local Catalog first
+    // 1. Search Local Catalog first (Generic match)
     const localMatches = catalog.filter(c => 
       c.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
       c.artist.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    if (localMatches.length > 0) {
-      setSearchResults(localMatches);
+    // Filter local matches based on category
+    const filteredLocalMatches = localMatches.filter(c => {
+      if (searchCategory === 'EQUIPMENT') return c.itemType === ItemType.EQUIPMENT;
+      return c.itemType !== ItemType.EQUIPMENT;
+    });
+
+    if (filteredLocalMatches.length > 0) {
+      setSearchResults(filteredLocalMatches);
       setSearchSource('LOCAL');
       setIsSearching(false);
       return;
     }
 
-    // 2. Search Discogs (if token exists)
-    if (discogsToken) {
-      const discogsResults = await searchDiscogs(searchTerm, discogsToken);
-      if (discogsResults.length > 0) {
-        setSearchResults(discogsResults);
-        setSearchSource('DISCOGS');
-        setIsSearching(false);
-        return;
+    // 2. Search External (Logic splits here based on category)
+    
+    if (searchCategory === 'MEDIA') {
+      // Discogs Logic (Only for Media)
+      if (discogsToken) {
+        const discogsResults = await searchDiscogs(searchTerm, discogsToken);
+        if (discogsResults.length > 0) {
+          setSearchResults(discogsResults);
+          setSearchSource('DISCOGS');
+          setIsSearching(false);
+          return;
+        }
+      }
+
+      // Gemini AI (Album)
+      const aiResult = await getAlbumDetails(searchTerm);
+      if (aiResult) {
+         // Auto-populate manual form in case user wants to edit it
+         setManualForm({
+            artist: aiResult.artist,
+            title: aiResult.title,
+            genre: aiResult.genre as Genre,
+            itemType: ItemType.LP,
+            year: aiResult.year.toString(),
+            description: aiResult.description,
+            label: 'Desconhecido',
+            voltage: 'N/A',
+            coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400`, // Default placeholder
+            imageSearchQuery: aiResult.imageSearchQuery
+         });
+
+         const newItem: CatalogItem = {
+           id: `c-ai-${Date.now()}`,
+           ...aiResult,
+           genre: aiResult.genre as Genre, 
+           itemType: ItemType.LP, // Default for AI results
+           coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400`,
+           format: 'Vinil',
+           label: 'Desconhecido'
+         };
+         setSearchResults([newItem]);
+         setSearchSource('AI');
+      } else {
+         if(confirm("Álbum não encontrado. Deseja cadastrar manualmente?")) {
+            setMode('MANUAL');
+            setManualForm(prev => ({ ...prev, itemType: ItemType.LP }));
+         }
+      }
+
+    } else {
+      // EQUIPMENT SEARCH LOGIC (Skip Discogs, go straight to Gemini Equipment)
+      const aiResult = await getEquipmentDetails(searchTerm);
+      
+      if (aiResult) {
+         // Auto-populate manual form
+         setManualForm({
+            artist: aiResult.brand,
+            title: aiResult.model,
+            genre: Genre.OTHER,
+            itemType: ItemType.EQUIPMENT,
+            year: aiResult.year.toString(),
+            description: aiResult.description,
+            label: aiResult.brand,
+            voltage: aiResult.voltage || 'N/A',
+            coverUrl: `https://picsum.photos/seed/${aiResult.model.replace(/\s/g,'')}/400/400`, // Default
+            imageSearchQuery: aiResult.imageSearchQuery
+         });
+
+         const newItem: CatalogItem = {
+           id: `c-eq-ai-${Date.now()}`,
+           artist: aiResult.brand,  // Map Brand to Artist field
+           title: aiResult.model,   // Map Model to Title field
+           genre: Genre.OTHER,      // Equipment usually doesn't have music genre
+           itemType: ItemType.EQUIPMENT,
+           year: aiResult.year,
+           description: aiResult.description,
+           coverUrl: `https://picsum.photos/seed/${aiResult.model.replace(/\s/g,'')}/400/400`,
+           format: 'Equipamento',
+           label: aiResult.brand,
+           voltage: aiResult.voltage || 'N/A'
+         };
+         setSearchResults([newItem]);
+         setSearchSource('AI');
+      } else {
+         if(confirm("Equipamento não encontrado automaticamente. Deseja cadastrar manualmente?")) {
+            setMode('MANUAL');
+            setManualForm(prev => ({ ...prev, itemType: ItemType.EQUIPMENT }));
+         }
       }
     }
-
-    // 3. Fallback to Gemini AI
-    const aiResult = await getAlbumDetails(searchTerm);
-    if (aiResult) {
-       const newItem: CatalogItem = {
-         id: `c-ai-${Date.now()}`,
-         ...aiResult,
-         genre: aiResult.genre as Genre, 
-         itemType: ItemType.LP, // Default for AI results
-         coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400`,
-         format: 'Vinil',
-         label: 'Desconhecido'
-       };
-       setSearchResults([newItem]);
-       setSearchSource('AI');
-    } else {
-       if(confirm("Item não encontrado. Deseja cadastrar manualmente?")) {
-          setMode('MANUAL');
-       }
-    }
+    
     setIsSearching(false);
   };
 
   const handleSelectResult = (item: CatalogItem) => {
+    // If AI result, we jump to Manual Edit to allow image adjustment
+    if (searchSource === 'AI') {
+        setMode('MANUAL');
+        // manualForm is already populated in handleSearch for AI
+        return;
+    }
+
     const exists = catalog.find(c => c.title === item.title && c.artist === item.artist);
     if (!exists) {
       const newItem = { ...item, id: item.id.startsWith('c-') ? item.id : `c-${Date.now()}` };
@@ -156,11 +233,11 @@ export const SellVinyl: React.FC = () => {
       return alert("Preencha os campos obrigatórios.");
     }
 
-    let coverUrl = `https://picsum.photos/seed/${manualForm.title}/400/400`;
+    let finalCoverUrl = manualForm.coverUrl || `https://picsum.photos/seed/${manualForm.title}/400/400`;
     
     if (manualCoverFile) {
        try {
-         coverUrl = await fileToBase64(manualCoverFile);
+         finalCoverUrl = await fileToBase64(manualCoverFile);
        } catch (err) {
          console.error("Error reading file", err);
          return alert("Erro ao processar imagem.");
@@ -175,7 +252,7 @@ export const SellVinyl: React.FC = () => {
       itemType: manualForm.itemType,
       year: parseInt(manualForm.year),
       description: manualForm.description || 'Cadastrado pelo vendedor.',
-      coverUrl: coverUrl,
+      coverUrl: finalCoverUrl,
       format: manualForm.itemType,
       label: manualForm.label,
       voltage: isEquipment ? manualForm.voltage : undefined
@@ -205,6 +282,13 @@ export const SellVinyl: React.FC = () => {
         alert("Erro ao processar imagens.");
       }
     }
+  };
+
+  const openGoogleImages = () => {
+     // Construct a high quality search query
+     const query = manualForm.imageSearchQuery || `${manualForm.artist} ${manualForm.title} high quality cover`;
+     const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}&tbs=isz:l`; // tbs=isz:l filters for Large images
+     window.open(url, '_blank');
   };
 
   const handlePublish = (e: React.FormEvent) => {
@@ -241,7 +325,7 @@ export const SellVinyl: React.FC = () => {
       <div className="max-w-4xl mx-auto bg-gray-900 rounded-lg p-6 shadow-xl border border-gray-800">
         <div className="flex justify-between items-center mb-6">
            <h1 className="text-2xl font-bold text-white">Vender seu Item</h1>
-           {step === 1 && mode === 'SEARCH' && (
+           {step === 1 && mode === 'SEARCH' && searchCategory === 'MEDIA' && (
              <button onClick={() => setShowConfig(!showConfig)} className="text-xs text-vinyl-accent underline">
                Configurar Discogs
              </button>
@@ -274,7 +358,7 @@ export const SellVinyl: React.FC = () => {
                 onClick={() => setMode('SEARCH')}
                 className={`px-4 py-2 font-medium text-sm ${mode === 'SEARCH' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400'}`}
               >
-                Buscar (Catálogo / Discogs)
+                Buscar Automático (IA)
               </button>
               <button 
                 onClick={() => setMode('MANUAL')}
@@ -286,12 +370,31 @@ export const SellVinyl: React.FC = () => {
 
             {mode === 'SEARCH' ? (
               <>
+                {/* Search Category Selector */}
+                <div className="bg-gray-800 p-3 rounded-lg border border-gray-700 mb-4">
+                   <p className="text-xs font-bold text-gray-400 mb-2 uppercase">O que você quer vender?</p>
+                   <div className="flex gap-2">
+                      <button 
+                        onClick={() => { setSearchCategory('MEDIA'); setSearchResults([]); }}
+                        className={`flex-1 py-2 px-3 rounded text-sm font-bold border transition ${searchCategory === 'MEDIA' ? 'bg-purple-900/50 text-purple-200 border-purple-500' : 'bg-gray-900 text-gray-400 border-gray-700'}`}
+                      >
+                         💿 Mídia (Vinil, CD, K7)
+                      </button>
+                      <button 
+                        onClick={() => { setSearchCategory('EQUIPMENT'); setSearchResults([]); }}
+                        className={`flex-1 py-2 px-3 rounded text-sm font-bold border transition ${searchCategory === 'EQUIPMENT' ? 'bg-blue-900/50 text-blue-200 border-blue-500' : 'bg-gray-900 text-gray-400 border-gray-700'}`}
+                      >
+                         🎛️ Equipamento
+                      </button>
+                   </div>
+                </div>
+
                 <form onSubmit={handleSearch} className="flex gap-2">
                   <input 
                     type="text" 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Digite Artista, Álbum ou Código de Barras..."
+                    placeholder={searchCategory === 'MEDIA' ? "Digite Artista ou Álbum..." : "Digite Marca e Modelo do Equipamento..."}
                     className="flex-1 bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
                   />
                   <button 
@@ -322,9 +425,12 @@ export const SellVinyl: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-white text-sm truncate">{item.title}</p>
                           <p className="text-vinyl-accent text-xs truncate">{item.artist}</p>
-                          <p className="text-gray-400 text-xs mt-1">{item.year} • {item.format || item.itemType || 'Vinil'}</p>
+                          <p className="text-gray-400 text-xs mt-1">
+                             {item.year} • {item.format || item.itemType || 'Vinil'}
+                             {item.itemType === ItemType.EQUIPMENT && item.voltage && ` • ${item.voltage}`}
+                          </p>
                           <button className="mt-2 text-[10px] bg-gray-600 hover:bg-green-600 text-white px-2 py-1 rounded w-full transition">
-                            Selecionar
+                            {searchSource === 'AI' ? 'Editar & Confirmar' : 'Selecionar'}
                           </button>
                         </div>
                       </div>
@@ -360,25 +466,69 @@ export const SellVinyl: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex gap-4 items-start border-t border-gray-800 pt-4">
-                   <div className="w-32">
-                     <label className="block text-xs font-bold text-gray-500 mb-1">
-                        {isEquipment ? 'Foto Principal' : 'Capa'}
+                <div className="flex flex-col md:flex-row gap-6 items-start border-t border-gray-800 pt-4">
+                   {/* Left Side: Image Tools */}
+                   <div className="w-full md:w-64 space-y-3">
+                     <label className="block text-xs font-bold text-gray-500">
+                        {isEquipment ? 'Foto Principal do Equipamento' : 'Capa do Álbum'}
                      </label>
-                     <div className="w-full aspect-square bg-gray-800 border-2 border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden">
-                        {manualCoverFile ? (
-                          <img src={URL.createObjectURL(manualCoverFile)} className="absolute inset-0 w-full h-full object-cover" />
+                     
+                     {/* Image Preview - Large */}
+                     <div className="w-full aspect-square bg-gray-800 border-2 border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden group">
+                        {(manualCoverFile || manualForm.coverUrl) ? (
+                          <img 
+                            src={manualCoverFile ? URL.createObjectURL(manualCoverFile) : manualForm.coverUrl} 
+                            className="absolute inset-0 w-full h-full object-contain bg-black" 
+                          />
                         ) : <span className="text-2xl text-gray-600">+</span>}
+                        
+                        {/* Overlay for File Input */}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition cursor-pointer">
+                            <span className="text-white text-xs font-bold">Alterar Arquivo</span>
+                        </div>
                         <input 
                           type="file" 
                           accept="image/*"
-                          onChange={e => setManualCoverFile(e.target.files ? e.target.files[0] : null)}
+                          onChange={e => {
+                              setManualCoverFile(e.target.files ? e.target.files[0] : null);
+                              setManualForm(prev => ({ ...prev, coverUrl: '' })); // Clear URL if file selected
+                          }}
                           className="absolute inset-0 opacity-0 cursor-pointer"
                         />
                      </div>
+
+                     {/* High Quality Tools */}
+                     <div className="space-y-2">
+                         <p className="text-[10px] text-vinyl-accent font-bold uppercase border-b border-gray-700 pb-1">Ferramentas de Imagem</p>
+                         
+                         <button 
+                           type="button" 
+                           onClick={openGoogleImages}
+                           className="w-full bg-blue-900/40 hover:bg-blue-800 text-blue-300 text-xs py-2 px-3 rounded border border-blue-800 flex items-center justify-center gap-2 transition"
+                         >
+                            <span>🔍</span> Buscar Capa HD no Google
+                         </button>
+                         
+                         <div className="relative">
+                            <input 
+                              type="text" 
+                              placeholder="Cole a URL da imagem aqui..."
+                              value={manualForm.coverUrl}
+                              onChange={e => {
+                                  setManualForm({...manualForm, coverUrl: e.target.value});
+                                  setManualCoverFile(null); // Clear file if URL used
+                              }}
+                              className="w-full bg-gray-900 text-white text-xs p-2 pl-7 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
+                            />
+                            <span className="absolute left-2 top-2 text-gray-500 text-xs">🔗</span>
+                         </div>
+                         <p className="text-[9px] text-gray-500 text-center">
+                            Dica: Busque no Google, clique com botão direito na imagem e selecione "Copiar endereço da imagem".
+                         </p>
+                     </div>
                    </div>
                    
-                   <div className="flex-1 space-y-3">
+                   <div className="flex-1 space-y-3 w-full">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col">
                             <label className="text-[10px] text-gray-500 font-bold mb-1 ml-1">
@@ -462,19 +612,19 @@ export const SellVinyl: React.FC = () => {
                               onChange={e => setManualForm({...manualForm, label: e.target.value})}
                             />
                       </div>
-                   </div>
-                </div>
 
-                <div className="flex flex-col">
-                    <label className="text-[10px] text-gray-500 font-bold mb-1 ml-1">
-                        Descrição Técnica (Catálogo)
-                    </label>
-                    <textarea 
-                    placeholder={isEquipment ? "Especificações técnicas, potência, dimensões..." : "Descrição do álbum..."}
-                    className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none text-sm"
-                    value={manualForm.description}
-                    onChange={e => setManualForm({...manualForm, description: e.target.value})}
-                    />
+                      <div className="flex flex-col">
+                        <label className="text-[10px] text-gray-500 font-bold mb-1 ml-1">
+                            Descrição Técnica (Catálogo)
+                        </label>
+                        <textarea 
+                        placeholder={isEquipment ? "Especificações técnicas, potência, dimensões..." : "Descrição do álbum..."}
+                        className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none text-sm h-32"
+                        value={manualForm.description}
+                        onChange={e => setManualForm({...manualForm, description: e.target.value})}
+                        />
+                      </div>
+                   </div>
                 </div>
 
                 <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded">
