@@ -308,7 +308,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return;
     }
 
-    if (!user.isVerified) {
+    // Verify account unless ADMIN
+    if (!user.isVerified && user.role !== 'ADMIN') {
       alert('Sua conta ainda não foi ativada. Verifique seu e-mail para validar o cadastro.');
       return;
     }
