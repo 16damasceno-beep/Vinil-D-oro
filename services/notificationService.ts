@@ -92,7 +92,7 @@ export const sendValidationEmail = (user: User, token: string) => {
   console.log(`--- [MOCK EMAIL] Enviado para ${user.email} ---`);
   console.log(`Assunto: Validação de Cadastro`);
   console.log(`Corpo: ${emailBody}`);
+  console.log(`LINK DE VALIDAÇÃO: ${validateLink}`);
   
-  // For usability in this demo environment
-  alert(`(Simulação) E-mail de validação enviado para ${user.email}.\n\nPara ativar a conta, copie este link (disponível no Console):\n\n${validateLink}`);
+  // Alert removed to improve UX flow in Login.tsx
 };

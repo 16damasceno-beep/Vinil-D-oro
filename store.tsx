@@ -11,7 +11,7 @@ interface StoreContextType {
   reviews: Review[];
   reservations: Reservation[];
   login: (email: string, password?: string) => void;
-  register: (user: User) => void;
+  register: (user: User) => string | null; // Changed return type
   verifyAccount: (email: string, token: string, newPassword: string) => boolean;
   logout: () => void;
   addToCatalog: (item: CatalogItem) => void;
@@ -41,8 +41,8 @@ interface StoreContextType {
   // Admin & User Management Functions
   deleteUser: (userId: string) => void;
   deleteListing: (listingId: string) => void;
-  updateUser: (updatedUser: User) => void; // New
-  adminCreateUser: (newUser: User) => void; // New
+  updateUser: (updatedUser: User) => void; 
+  adminCreateUser: (newUser: User) => void; 
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -312,7 +312,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     // Verify account unless ADMIN
     if (!user.isVerified && user.role !== 'ADMIN') {
-      alert('Sua conta ainda não foi ativada. Verifique seu e-mail para validar o cadastro.');
+      alert('Sua conta ainda não foi ativada. Verifique o link de validação enviado.');
       return;
     }
 
@@ -324,11 +324,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setCurrentUser(user);
   };
 
-  const register = (newUser: User) => {
+  const register = (newUser: User): string | null => {
     const exists = users.find(u => u.email === newUser.email || u.cpf === newUser.cpf);
     if (exists) {
       alert("Usuário com este email ou CPF/CNPJ já existe.");
-      return;
+      return null;
     }
 
     // Generate Verification Token & Provisional Password Logic
@@ -344,6 +344,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     setUsers([...users, userWithAuth]);
     sendValidationEmail(userWithAuth, verificationToken);
+    
+    return verificationToken;
   };
 
   const adminCreateUser = (newUser: User) => {

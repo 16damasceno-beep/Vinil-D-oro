@@ -1,15 +1,18 @@
 
 import React, { useState } from 'react';
 import { useStore } from '../store';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { User, UserRole } from '../types';
 
 export const Login: React.FC = () => {
   const { login, register, requestPasswordReset } = useStore();
   const navigate = useNavigate();
   
-  // Controls current view: LOGIN, REGISTER, or FORGOT
-  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
+  // Controls current view: LOGIN, REGISTER, FORGOT, or REGISTRATION_SUCCESS
+  const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'FORGOT' | 'REGISTRATION_SUCCESS'>('LOGIN');
+
+  // Pending Validation Data
+  const [pendingValidationData, setPendingValidationData] = useState<{email: string, token: string} | null>(null);
 
   // Form State
   const [email, setEmail] = useState('');
@@ -49,7 +52,6 @@ export const Login: React.FC = () => {
       if (!email) return alert("Por favor, digite seu e-mail.");
       const success = requestPasswordReset(email);
       if (success) {
-        // NotificationService inside store handles the alert/log
         setView('LOGIN');
       } else {
         alert("E-mail não encontrado em nossa base de dados.");
@@ -74,7 +76,6 @@ export const Login: React.FC = () => {
       const newUser: User = {
         id: `u-${Date.now()}`,
         email,
-        // password is set internally as provisional or empty initially
         name,
         nickname,
         cpf,
@@ -90,10 +91,13 @@ export const Login: React.FC = () => {
         buyerRating: 0,
         buyerReviewCount: 0
       };
-      register(newUser);
-      // Don't navigate to profile, show success message and switch to login
-      alert("Cadastro iniciado! Uma senha provisória e um link de validação foram enviados para o seu e-mail. Verifique para ativar sua conta.");
-      setView('LOGIN');
+      
+      const token = register(newUser);
+      
+      if (token) {
+        setPendingValidationData({ email: newUser.email, token });
+        setView('REGISTRATION_SUCCESS');
+      }
     } else {
       // LOGIN
       if (!email || !password) return alert("Preencha email e senha.");
@@ -101,6 +105,46 @@ export const Login: React.FC = () => {
       navigate('/');
     }
   };
+
+  // --- RENDER REGISTRATION SUCCESS (Simulation UI) ---
+  if (view === 'REGISTRATION_SUCCESS' && pendingValidationData) {
+    return (
+      <div className="min-h-screen bg-vinyl-black flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full bg-gray-900 p-8 rounded-xl shadow-2xl border border-green-900/50 text-center animate-[fadeIn_0.3s]">
+           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-900/20 mb-6">
+              <svg className="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+           </div>
+           <h2 className="text-2xl font-bold text-white mb-2">Cadastro Realizado!</h2>
+           <p className="text-gray-400 mb-6 text-sm">
+             Enviamos um link de validação para <span className="font-bold text-white">{pendingValidationData.email}</span>.
+           </p>
+           
+           <div className="bg-gray-800 p-4 rounded border border-gray-700 mb-6">
+             <p className="text-xs text-yellow-500 uppercase font-bold mb-2">Ambiente de Demonstração</p>
+             <p className="text-sm text-gray-300 mb-4">
+               Como este site é uma demonstração, não enviamos e-mails reais. 
+               <br/>Clique no botão abaixo para simular a validação:
+             </p>
+             <Link 
+               to={`/validate?email=${encodeURIComponent(pendingValidationData.email)}&token=${pendingValidationData.token}`}
+               className="block w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded transition shadow-lg"
+             >
+               Abrir Link de Validação
+             </Link>
+           </div>
+
+           <button 
+             onClick={() => setView('LOGIN')}
+             className="text-sm text-gray-500 hover:text-white underline"
+           >
+             Voltar para Login
+           </button>
+        </div>
+      </div>
+    );
+  }
 
   const renderTitle = () => {
     if (view === 'REGISTER') return <>Junte-se ao <span className="text-vinyl-accent">Vinil D'oro</span></>;
@@ -247,10 +291,6 @@ export const Login: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                
-                <p className="text-xs text-yellow-500 mt-2 bg-yellow-900/10 p-2 rounded text-center">
-                  Após o cadastro, enviaremos um link para seu e-mail para que você crie sua senha definitiva.
-                </p>
               </>
             )}
           </div>
