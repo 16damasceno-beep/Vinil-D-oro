@@ -196,19 +196,19 @@ export const ListingDetails: React.FC = () => {
         {/* Images */}
         <div className="space-y-4 relative">
           {/* Main Image Container - Optimized for Quality and Size */}
-          <div className="w-full h-[450px] rounded-lg overflow-hidden border border-gray-700 shadow-2xl bg-gray-900 relative flex items-center justify-center group">
+          <div className="w-full h-[500px] md:h-[600px] rounded-lg overflow-hidden border border-gray-700 shadow-2xl bg-gray-900 relative flex items-center justify-center group">
             
             {/* Blurred Background Layer (Aesthetic fill) */}
             <div 
-              className="absolute inset-0 bg-cover bg-center blur-xl opacity-40 grayscale-[30%]"
+              className="absolute inset-0 bg-cover bg-center blur-2xl opacity-50 grayscale-[30%]"
               style={{ backgroundImage: `url(${mainImage})` }}
             />
 
-            {/* Actual Image - No stretching */}
+            {/* Actual Image - Larger & No stretching */}
             <img 
               src={mainImage} 
               alt="Main" 
-              className="relative z-10 max-h-full max-w-full object-contain shadow-lg rounded transition-transform duration-300 group-hover:scale-105" 
+              className="relative z-10 h-full w-full object-contain shadow-lg rounded transition-transform duration-300 group-hover:scale-105" 
             />
           </div>
           
