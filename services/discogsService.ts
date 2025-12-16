@@ -1,5 +1,5 @@
 
-import { CatalogItem, Genre, ItemType } from "../types";
+import { CatalogItem, Genre, ItemType, Track } from "../types";
 
 const BASE_URL = 'https://api.discogs.com';
 
@@ -65,5 +65,35 @@ export const searchDiscogs = async (query: string, token: string): Promise<Catal
   } catch (error) {
     console.error("Discogs Error:", error);
     return [];
+  }
+};
+
+export const getDiscogsReleaseDetails = async (releaseId: number, token: string): Promise<{ tracks: Track[], year?: number, label?: string } | null> => {
+  try {
+    const response = await fetch(`${BASE_URL}/releases/${releaseId}`, {
+      headers: {
+        'Authorization': `Discogs token=${token}`
+      }
+    });
+
+    if (!response.ok) throw new Error('Falha ao obter detalhes do release');
+
+    const data = await response.json();
+
+    const tracks: Track[] = (data.tracklist || []).map((t: any) => ({
+      position: t.position || '',
+      title: t.title || '',
+      duration: t.duration || ''
+    })).filter((t: Track) => t.title && t.position); // Basic filtering
+
+    return {
+      tracks,
+      year: data.year,
+      label: data.labels && data.labels.length > 0 ? data.labels[0].name : undefined
+    };
+
+  } catch (error) {
+    console.error("Discogs Details Error:", error);
+    return null;
   }
 };

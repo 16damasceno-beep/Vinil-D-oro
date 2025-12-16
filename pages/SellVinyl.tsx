@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { CatalogItem, Genre, VinylCondition, Listing, ItemType, ProductCondition, Track } from '../types';
 import { getAlbumDetails, getEquipmentDetails } from '../services/geminiService';
-import { searchDiscogs } from '../services/discogsService';
+import { searchDiscogs, getDiscogsReleaseDetails } from '../services/discogsService';
 import { useNavigate } from 'react-router-dom';
 
 // Helper to convert file to Base64 string for database storage
@@ -28,6 +28,7 @@ export const SellVinyl: React.FC = () => {
   const [searchCategory, setSearchCategory] = useState<'MEDIA' | 'EQUIPMENT'>('MEDIA');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false); // New state for details fetching
   const [searchResults, setSearchResults] = useState<CatalogItem[]>([]);
   const [searchSource, setSearchSource] = useState<'LOCAL' | 'DISCOGS' | 'AI' | null>(null);
 
@@ -203,20 +204,39 @@ export const SellVinyl: React.FC = () => {
     setIsSearching(false);
   };
 
-  const handleSelectResult = (item: CatalogItem) => {
+  const handleSelectResult = async (item: CatalogItem) => {
+    let tracks = item.tracks || [];
+    let year = item.year ? item.year.toString() : '';
+    let label = item.label || '';
+
+    // Fetch Full Details from Discogs if needed
+    if (item.id.startsWith('discogs-') && discogsToken) {
+       setLoadingDetails(true);
+       const realId = item.discogsId || parseInt(item.id.replace('discogs-', ''));
+       if (realId) {
+         const details = await getDiscogsReleaseDetails(realId, discogsToken);
+         if (details) {
+            tracks = details.tracks;
+            if (details.year) year = details.year.toString();
+            if (details.label) label = details.label;
+         }
+       }
+       setLoadingDetails(false);
+    }
+
     // Populate Manual Form with the selected item data to allow Editing (adding tracks, etc)
     setManualForm({
       artist: item.artist,
       title: item.title,
       genre: item.genre,
       itemType: item.itemType,
-      year: item.year ? item.year.toString() : '',
+      year: year,
       description: item.description || '',
-      label: item.label || '',
+      label: label,
       voltage: item.voltage || 'N/A',
       coverUrl: item.coverUrl,
       imageSearchQuery: '',
-      tracks: item.tracks || [] // Load existing tracks if any
+      tracks: tracks
     });
 
     // Switch to Manual Mode so the user can edit/add tracks
@@ -320,6 +340,14 @@ export const SellVinyl: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-vinyl-black py-8 px-4">
+      {/* Loading Overlay */}
+      {loadingDetails && (
+        <div className="fixed inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center">
+           <div className="w-16 h-16 border-4 border-vinyl-accent border-t-transparent rounded-full animate-spin mb-4"></div>
+           <p className="text-white font-bold">Importando faixas e detalhes do Discogs...</p>
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto bg-gray-900 rounded-lg p-6 shadow-xl border border-gray-800">
         <div className="flex justify-between items-center mb-6">
            <h1 className="text-2xl font-bold text-white">Vender seu Item</h1>
