@@ -3,11 +3,13 @@ import React, { useState } from 'react';
 import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { User, UserRole } from '../types';
+import { supabase } from '../services/supabaseClient';
 
 export const AdminDashboard: React.FC = () => {
   const { currentUser, users, listings, deleteUser, deleteListing, getEnrichedListings, updateUser, adminCreateUser } = useStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'USERS' | 'LISTINGS'>('OVERVIEW');
+  const isDbConnected = !!supabase;
 
   // User Management State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -214,6 +216,11 @@ export const AdminDashboard: React.FC = () => {
             <p className="text-gray-400 mt-1">
               Logado como: <span className={currentUser.role === 'ADMIN' ? 'text-red-400 font-bold' : 'text-blue-400 font-bold'}>{currentUser.name} ({currentUser.role})</span>
             </p>
+          </div>
+          <div className="text-right">
+             <div className={`text-xs px-3 py-1 rounded-full border ${isDbConnected ? 'bg-green-900/30 border-green-500 text-green-400' : 'bg-gray-800 border-gray-600 text-gray-400'}`}>
+                {isDbConnected ? '● Banco de Dados Online (Supabase)' : '○ Modo Local (Navegador)'}
+             </div>
           </div>
         </div>
 
