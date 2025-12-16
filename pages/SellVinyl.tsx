@@ -153,20 +153,6 @@ export const SellVinyl: React.FC = () => {
       const aiResult = await getAlbumDetails(searchTerm);
       if (aiResult) {
          // Auto-populate manual form in case user wants to edit it
-         setManualForm({
-            artist: aiResult.artist,
-            title: aiResult.title,
-            genre: aiResult.genre as Genre,
-            itemType: ItemType.LP,
-            year: aiResult.year.toString(),
-            description: aiResult.description,
-            label: 'Desconhecido',
-            voltage: 'N/A',
-            coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400`, // Default placeholder
-            imageSearchQuery: aiResult.imageSearchQuery,
-            tracks: aiResult.tracks || []
-         });
-
          const newItem: CatalogItem = {
            id: `c-ai-${Date.now()}`,
            ...aiResult,
@@ -191,21 +177,6 @@ export const SellVinyl: React.FC = () => {
       const aiResult = await getEquipmentDetails(searchTerm);
       
       if (aiResult) {
-         // Auto-populate manual form
-         setManualForm({
-            artist: aiResult.brand,
-            title: aiResult.model,
-            genre: Genre.OTHER,
-            itemType: ItemType.EQUIPMENT,
-            year: aiResult.year.toString(),
-            description: aiResult.description,
-            label: aiResult.brand,
-            voltage: aiResult.voltage || 'N/A',
-            coverUrl: `https://picsum.photos/seed/${aiResult.model.replace(/\s/g,'')}/400/400`, // Default
-            imageSearchQuery: aiResult.imageSearchQuery,
-            tracks: []
-         });
-
          const newItem: CatalogItem = {
            id: `c-eq-ai-${Date.now()}`,
            artist: aiResult.brand,  // Map Brand to Artist field
@@ -233,22 +204,24 @@ export const SellVinyl: React.FC = () => {
   };
 
   const handleSelectResult = (item: CatalogItem) => {
-    // If AI result, we jump to Manual Edit to allow image adjustment
-    if (searchSource === 'AI') {
-        setMode('MANUAL');
-        // manualForm is already populated in handleSearch for AI
-        return;
-    }
+    // Populate Manual Form with the selected item data to allow Editing (adding tracks, etc)
+    setManualForm({
+      artist: item.artist,
+      title: item.title,
+      genre: item.genre,
+      itemType: item.itemType,
+      year: item.year ? item.year.toString() : '',
+      description: item.description || '',
+      label: item.label || '',
+      voltage: item.voltage || 'N/A',
+      coverUrl: item.coverUrl,
+      imageSearchQuery: '',
+      tracks: item.tracks || [] // Load existing tracks if any
+    });
 
-    const exists = catalog.find(c => c.title === item.title && c.artist === item.artist);
-    if (!exists) {
-      const newItem = { ...item, id: item.id.startsWith('c-') ? item.id : `c-${Date.now()}` };
-      addToCatalog(newItem);
-      setSelectedCatalogItem(newItem);
-    } else {
-      setSelectedCatalogItem(exists);
-    }
-    setStep(2);
+    // Switch to Manual Mode so the user can edit/add tracks
+    setMode('MANUAL');
+    window.scrollTo(0, 0); // Scroll to top to see the form
   };
 
   const handleManualCatalogSubmit = async (e: React.FormEvent) => {
@@ -455,7 +428,7 @@ export const SellVinyl: React.FC = () => {
                              {item.itemType === ItemType.EQUIPMENT && item.voltage && ` • ${item.voltage}`}
                           </p>
                           <button className="mt-2 text-[10px] bg-gray-600 hover:bg-green-600 text-white px-2 py-1 rounded w-full transition">
-                            {searchSource === 'AI' ? 'Editar & Confirmar' : 'Selecionar'}
+                            Revisar / Adicionar Faixas
                           </button>
                         </div>
                       </div>
@@ -472,7 +445,11 @@ export const SellVinyl: React.FC = () => {
               </>
             ) : (
               <form onSubmit={handleManualCatalogSubmit} className="space-y-4 animate-[fadeIn_0.3s]">
-                <p className="text-gray-400 text-sm">Adicione os dados da Ficha Técnica manualmente.</p>
+                <p className="text-gray-400 text-sm">
+                   {searchResults.length > 0 
+                     ? "Revise os dados encontrados e adicione informações extras (como faixas) antes de confirmar." 
+                     : "Adicione os dados da Ficha Técnica manualmente."}
+                </p>
                 
                 {/* Item Type Selector First */}
                 <div className="mb-4">
@@ -659,9 +636,9 @@ export const SellVinyl: React.FC = () => {
                            </div>
                            
                            {manualForm.tracks.length === 0 ? (
-                             <p className="text-xs text-gray-500 italic text-center p-2 border border-dashed border-gray-800 rounded">Nenhuma faixa adicionada. Use a Busca Automática ou adicione manualmente.</p>
+                             <p className="text-xs text-gray-500 italic text-center p-2 border border-dashed border-gray-800 rounded">Nenhuma faixa encontrada. Adicione manualmente para valorizar seu anúncio.</p>
                            ) : (
-                             <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                             <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
                                {manualForm.tracks.map((track, idx) => (
                                  <div key={idx} className="flex gap-2 items-center">
                                     <input 
