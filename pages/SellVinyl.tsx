@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
-import { CatalogItem, Genre, VinylCondition, Listing, ItemType, ProductCondition } from '../types';
+import { CatalogItem, Genre, VinylCondition, Listing, ItemType, ProductCondition, Track } from '../types';
 import { getAlbumDetails, getEquipmentDetails } from '../services/geminiService';
 import { searchDiscogs } from '../services/discogsService';
 import { useNavigate } from 'react-router-dom';
@@ -46,7 +46,8 @@ export const SellVinyl: React.FC = () => {
     label: '',
     voltage: 'N/A',
     coverUrl: '', // URL String
-    imageSearchQuery: '' // To help user find images
+    imageSearchQuery: '', // To help user find images
+    tracks: [] as Track[]
   });
   const [manualCoverFile, setManualCoverFile] = useState<File | null>(null);
 
@@ -77,6 +78,26 @@ export const SellVinyl: React.FC = () => {
        genre: newType === ItemType.EQUIPMENT ? Genre.OTHER : prev.genre,
        voltage: newType === ItemType.EQUIPMENT ? '110v' : 'N/A'
      }));
+  };
+
+  const handleAddTrack = () => {
+    setManualForm(prev => ({
+      ...prev,
+      tracks: [...prev.tracks, { position: '', title: '', duration: '' }]
+    }));
+  };
+
+  const handleTrackChange = (index: number, field: keyof Track, value: string) => {
+    const newTracks = [...manualForm.tracks];
+    newTracks[index] = { ...newTracks[index], [field]: value };
+    setManualForm(prev => ({ ...prev, tracks: newTracks }));
+  };
+
+  const handleRemoveTrack = (index: number) => {
+    setManualForm(prev => ({
+      ...prev,
+      tracks: prev.tracks.filter((_, i) => i !== index)
+    }));
   };
 
   if (!currentUser) {
@@ -142,7 +163,8 @@ export const SellVinyl: React.FC = () => {
             label: 'Desconhecido',
             voltage: 'N/A',
             coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400`, // Default placeholder
-            imageSearchQuery: aiResult.imageSearchQuery
+            imageSearchQuery: aiResult.imageSearchQuery,
+            tracks: aiResult.tracks || []
          });
 
          const newItem: CatalogItem = {
@@ -152,7 +174,8 @@ export const SellVinyl: React.FC = () => {
            itemType: ItemType.LP, // Default for AI results
            coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400`,
            format: 'Vinil',
-           label: 'Desconhecido'
+           label: 'Desconhecido',
+           tracks: aiResult.tracks
          };
          setSearchResults([newItem]);
          setSearchSource('AI');
@@ -179,7 +202,8 @@ export const SellVinyl: React.FC = () => {
             label: aiResult.brand,
             voltage: aiResult.voltage || 'N/A',
             coverUrl: `https://picsum.photos/seed/${aiResult.model.replace(/\s/g,'')}/400/400`, // Default
-            imageSearchQuery: aiResult.imageSearchQuery
+            imageSearchQuery: aiResult.imageSearchQuery,
+            tracks: []
          });
 
          const newItem: CatalogItem = {
@@ -255,7 +279,8 @@ export const SellVinyl: React.FC = () => {
       coverUrl: finalCoverUrl,
       format: manualForm.itemType,
       label: manualForm.label,
-      voltage: isEquipment ? manualForm.voltage : undefined
+      voltage: isEquipment ? manualForm.voltage : undefined,
+      tracks: manualForm.tracks.filter(t => t.title) // Save tracks
     };
 
     addToCatalog(newItem);
@@ -619,11 +644,47 @@ export const SellVinyl: React.FC = () => {
                         </label>
                         <textarea 
                         placeholder={isEquipment ? "Especificações técnicas, potência, dimensões..." : "Descrição do álbum..."}
-                        className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none text-sm h-32"
+                        className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none text-sm h-24"
                         value={manualForm.description}
                         onChange={e => setManualForm({...manualForm, description: e.target.value})}
                         />
                       </div>
+
+                      {/* Tracks Section (Only for Media) */}
+                      {!isEquipment && (
+                        <div className="flex flex-col border-t border-gray-800 pt-3">
+                           <div className="flex justify-between items-end mb-2">
+                             <label className="text-[10px] text-gray-500 font-bold uppercase">Faixas (Tracklist)</label>
+                             <button type="button" onClick={handleAddTrack} className="text-xs text-vinyl-accent font-bold hover:underline">+ Adicionar Faixa</button>
+                           </div>
+                           
+                           {manualForm.tracks.length === 0 ? (
+                             <p className="text-xs text-gray-500 italic text-center p-2 border border-dashed border-gray-800 rounded">Nenhuma faixa adicionada. Use a Busca Automática ou adicione manualmente.</p>
+                           ) : (
+                             <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                               {manualForm.tracks.map((track, idx) => (
+                                 <div key={idx} className="flex gap-2 items-center">
+                                    <input 
+                                      type="text" 
+                                      placeholder="Pos (A1, 1)" 
+                                      value={track.position} 
+                                      onChange={e => handleTrackChange(idx, 'position', e.target.value)}
+                                      className="w-16 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white uppercase text-center"
+                                    />
+                                    <input 
+                                      type="text" 
+                                      placeholder="Nome da Música" 
+                                      value={track.title} 
+                                      onChange={e => handleTrackChange(idx, 'title', e.target.value)}
+                                      className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                                    />
+                                    <button type="button" onClick={() => handleRemoveTrack(idx)} className="text-red-500 hover:text-white px-1">×</button>
+                                 </div>
+                               ))}
+                             </div>
+                           )}
+                        </div>
+                      )}
                    </div>
                 </div>
 
@@ -652,6 +713,9 @@ export const SellVinyl: React.FC = () => {
                       <span className="text-[10px] bg-blue-900/40 text-blue-300 border border-blue-800 px-2 py-0.5 rounded">{selectedCatalogItem.voltage}</span>
                    )}
                 </div>
+                {selectedCatalogItem.tracks && selectedCatalogItem.tracks.length > 0 && (
+                   <p className="text-[10px] text-green-400 mt-1">✓ {selectedCatalogItem.tracks.length} faixas detectadas</p>
+                )}
                 <button type="button" onClick={() => setStep(1)} className="text-xs text-vinyl-accent hover:underline mt-2">← Escolher outro item</button>
               </div>
             </div>

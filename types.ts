@@ -93,6 +93,12 @@ export interface User {
   verificationToken?: string;
 }
 
+export interface Track {
+  position: string; // e.g., "A1", "B1", "1", "2"
+  title: string;
+  duration?: string;
+}
+
 export interface CatalogItem {
   id: string;
   artist: string; // Para Equipamentos, serve como MARCA
@@ -106,6 +112,7 @@ export interface CatalogItem {
   label?: string;
   discogsId?: number;
   voltage?: string; // Novo campo: 110v, 220v, Bivolt
+  tracks?: Track[]; // Lista de faixas
 }
 
 export type ListingStatus = 'DISPONÍVEL' | 'RESERVADO' | 'AGUARDANDO_ENVIO' | 'ENVIADO' | 'CONCLUÍDO' | 'VENDIDO_FORA';

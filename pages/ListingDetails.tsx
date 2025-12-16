@@ -120,6 +120,9 @@ export const ListingDetails: React.FC = () => {
     return 'COMPRAR COM SEGURANÇA';
   };
 
+  // Helper to check if tracks follow "Side" pattern (A1, B1 etc)
+  const hasSides = listing.catalogItem.tracks && listing.catalogItem.tracks.some(t => t.position.toUpperCase().startsWith('A') || t.position.toUpperCase().startsWith('B'));
+
   return (
     <div className="min-h-screen bg-vinyl-black py-12 px-4 sm:px-6 lg:px-8 relative">
       
@@ -347,6 +350,49 @@ export const ListingDetails: React.FC = () => {
               <p className="text-gray-300 italic">"{listing.description}"</p>
             </div>
             
+            {/* Tracklist Display */}
+            {listing.catalogItem.tracks && listing.catalogItem.tracks.length > 0 && (
+              <div className="bg-gray-800 p-4 rounded border border-gray-700">
+                 <h3 className="text-lg font-bold border-b border-gray-600 pb-2 mb-3 text-vinyl-accent">Faixas / Tracklist</h3>
+                 <div className="space-y-4">
+                    {hasSides ? (
+                      // Group by Side
+                      <>
+                        {['A', 'B', 'C', 'D'].map(side => {
+                           const sideTracks = listing.catalogItem.tracks?.filter(t => t.position.toUpperCase().startsWith(side));
+                           if (!sideTracks || sideTracks.length === 0) return null;
+                           return (
+                             <div key={side}>
+                               <p className="text-gray-500 text-xs font-bold uppercase mb-2 bg-gray-900 p-1 rounded inline-block">Lado {side}</p>
+                               <ul className="space-y-1">
+                                 {sideTracks.map((t, idx) => (
+                                   <li key={idx} className="flex gap-3 text-sm border-b border-gray-700/50 pb-1 last:border-0">
+                                      <span className="text-gray-500 font-mono w-8">{t.position}</span>
+                                      <span className="text-white flex-1">{t.title}</span>
+                                      {t.duration && <span className="text-gray-600 text-xs">{t.duration}</span>}
+                                   </li>
+                                 ))}
+                               </ul>
+                             </div>
+                           )
+                        })}
+                      </>
+                    ) : (
+                      // Sequential List
+                      <ul className="space-y-2">
+                        {listing.catalogItem.tracks.map((t, idx) => (
+                           <li key={idx} className="flex gap-3 text-sm border-b border-gray-700/50 pb-1 last:border-0">
+                              <span className="text-gray-500 font-mono w-8 text-right">{t.position || idx + 1}</span>
+                              <span className="text-white flex-1">{t.title}</span>
+                              {t.duration && <span className="text-gray-600 text-xs">{t.duration}</span>}
+                           </li>
+                        ))}
+                      </ul>
+                    )}
+                 </div>
+              </div>
+            )}
+
             {/* Tech Specs Block */}
             <div className="bg-gray-800 p-4 rounded border border-gray-700">
               <h3 className="text-lg font-bold border-b border-gray-600 pb-2 mb-3 text-vinyl-accent">Ficha Técnica</h3>

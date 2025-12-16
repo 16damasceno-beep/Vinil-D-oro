@@ -6,13 +6,15 @@ import { Genre, ItemType } from "../types";
 const genreKeys = Object.values(Genre);
 const itemTypeKeys = Object.values(ItemType);
 
-export const getAlbumDetails = async (query: string): Promise<{ artist: string; title: string; genre: string; description: string; year: number; imageSearchQuery: string } | null> => {
+export const getAlbumDetails = async (query: string): Promise<{ artist: string; title: string; genre: string; description: string; year: number; imageSearchQuery: string; tracks: {position: string, title: string, duration: string}[] } | null> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Encontre detalhes para o álbum de música correspondente a esta pesquisa: "${query}". Retorne o artista, título, gênero (correspondência mais próxima da lista), ano de lançamento, uma descrição curta de 2 frases em Português e um termo de busca otimizado para encontrar a capa em alta qualidade (ex: 'Pink Floyd Dark Side Moon album cover high resolution').`,
+      contents: `Encontre detalhes para o álbum de música correspondente a esta pesquisa: "${query}". 
+      Retorne o artista, título, gênero (correspondência mais próxima da lista), ano de lançamento, uma descrição curta de 2 frases em Português e um termo de busca otimizado para a capa.
+      IMPORTANTE: Retorne a lista de faixas (tracklist) completa. Se for vinil, use A1, A2, B1, B2 na posição. Se for CD, use 1, 2, 3.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -23,9 +25,21 @@ export const getAlbumDetails = async (query: string): Promise<{ artist: string; 
             genre: { type: Type.STRING, enum: genreKeys },
             year: { type: Type.INTEGER },
             description: { type: Type.STRING },
-            imageSearchQuery: { type: Type.STRING, description: "Termo em inglês para buscar imagem HD no Google Images" }
+            imageSearchQuery: { type: Type.STRING, description: "Termo em inglês para buscar imagem HD no Google Images" },
+            tracks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  position: { type: Type.STRING, description: "Ex: A1, B1 ou 1, 2" },
+                  title: { type: Type.STRING },
+                  duration: { type: Type.STRING, description: "Ex: 3:45" }
+                },
+                required: ["position", "title"]
+              }
+            }
           },
-          required: ["artist", "title", "genre", "year", "description", "imageSearchQuery"]
+          required: ["artist", "title", "genre", "year", "description", "imageSearchQuery", "tracks"]
         }
       }
     });
