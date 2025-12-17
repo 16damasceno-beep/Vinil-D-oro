@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { ItemType } from '../types';
 
 export const Home: React.FC = () => {
-  const { getEnrichedListings, currentUser, toggleFavorite, wantRequests, users } = useStore();
+  const { getEnrichedListings, currentUser, wantRequests, users } = useStore();
   
   // Get and Filter Listings
   const allActiveListings = getEnrichedListings()
@@ -17,56 +17,42 @@ export const Home: React.FC = () => {
   const mediaListings = allActiveListings.filter(l => l.catalogItem.itemType !== ItemType.EQUIPMENT && l.catalogItem.itemType !== ItemType.LOTE).slice(0, 10);
 
   // Latest Want Requests (Procuro Por)
-  const latestWants = wantRequests.slice(0, 4);
+  const latestWants = wantRequests.filter(r => r.status === 'ABERTO').slice(0, 4);
   
   // Featured Users (Sellers)
   const topSellers = users
     .filter(u => u.sellerReviewCount > 0 || u.role !== 'COMPRADOR')
     .slice(0, 6);
 
-  const handleFavoriteClick = (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    if (!currentUser) return alert("Faça login para favoritar.");
-    toggleFavorite(id);
-  };
-
-  const renderListingCard = (item: any, isSmall: boolean = false) => {
-    const isFavorited = currentUser?.favorites?.includes(item.id);
-    return (
-      <Link to={`/listing/${item.id}`} key={item.id} className="group relative block bg-gray-800 rounded-xl overflow-hidden shadow-lg hover:shadow-vinyl-accent/20 transition duration-300 border border-gray-700 hover:border-vinyl-accent">
-        <div className="relative pb-[100%]">
-          <img
-            src={item.catalogItem.coverUrl}
-            alt={item.catalogItem.title}
-            className="absolute h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-          <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded text-[10px] font-bold text-white z-10">
-            {item.condition.split(' ')[0]}
-          </div>
-          {item.catalogItem.itemType === ItemType.LOTE && (
-            <div className="absolute top-0 left-0 bg-vinyl-accent text-black text-[10px] font-bold px-3 py-1 rounded-br z-10 shadow-lg">🎁 LOTE</div>
-          )}
+  const renderListingCard = (listing: any, highlight: boolean = false) => (
+    <Link 
+      to={`/listing/${listing.id}`} 
+      key={listing.id} 
+      className={`block group rounded-lg overflow-hidden border transition shadow-lg ${highlight ? 'bg-vinyl-accent/5 border-vinyl-accent/50' : 'bg-gray-800 border-gray-700 hover:border-vinyl-accent'}`}
+    >
+      <div className="relative pb-[100%] overflow-hidden">
+        <img 
+          src={listing.catalogItem.coverUrl} 
+          alt={listing.catalogItem.title} 
+          className="absolute h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" 
+        />
+        {listing.catalogItem.itemType === ItemType.LOTE && (
+          <div className="absolute top-0 left-0 bg-vinyl-accent text-black text-[10px] font-bold px-2 py-1 rounded-br z-10">🎁 LOTE</div>
+        )}
+        <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded text-[10px] font-bold text-white z-10">
+          {listing.condition.split(' ')[0]}
         </div>
-        <div className="p-4">
-          <h3 className={`font-bold text-white truncate ${isSmall ? 'text-xs' : 'text-sm'}`}>{item.catalogItem.title}</h3>
-          <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.catalogItem.artist}</p>
-          <div className="mt-3 flex justify-between items-center">
-            <span className="text-vinyl-accent font-bold text-base">R$ {item.price.toFixed(2)}</span>
-            <span className="text-[9px] text-gray-500 uppercase font-bold">{item.catalogItem.itemType.split(' ')[0]}</span>
-          </div>
+      </div>
+      <div className="p-4">
+        <h3 className="font-bold text-white truncate text-lg">{listing.catalogItem.title}</h3>
+        <p className="text-sm text-vinyl-accent truncate">{listing.catalogItem.artist}</p>
+        <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-700">
+          <span className="text-xs text-gray-400">R$ individual</span>
+          <span className="text-xl font-bold text-white">R$ {listing.price.toFixed(2)}</span>
         </div>
-
-        <button 
-          onClick={(e) => handleFavoriteClick(e, item.id)}
-          className="absolute top-2 left-2 p-1.5 rounded-full bg-black/60 hover:bg-gray-700 transition z-10"
-        >
-           <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${isFavorited ? 'text-red-500 fill-current' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-           </svg>
-        </button>
-      </Link>
-    );
-  };
+      </div>
+    </Link>
+  );
 
   return (
     <div className="min-h-screen bg-vinyl-black pb-20">
@@ -133,7 +119,12 @@ export const Home: React.FC = () => {
               </h2>
               <p className="text-gray-400 text-sm mt-1">Veja o que os colecionadores estão procurando e faça uma proposta!</p>
             </div>
-            <Link to="/procuro-por" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Todos</Link>
+            <div className="flex gap-4">
+               {currentUser?.role !== 'COMPRADOR' && (
+                 <Link to="/profile" className="hidden sm:block text-green-400 hover:text-white text-[10px] font-bold uppercase tracking-widest bg-green-900/20 px-4 py-2 rounded-lg border border-green-800/50 transition">Tenho esses itens</Link>
+               )}
+               <Link to="/procuro-por" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Todos</Link>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
@@ -160,6 +151,58 @@ export const Home: React.FC = () => {
             )}
           </div>
         </section>
+
+        {/* Super Lotes (Strict Catalog Style) */}
+        {lotListings.length > 0 && (
+          <section>
+            <div className="flex justify-between items-end mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🎁</span> Super Lotes Promocionais
+                </h2>
+                <p className="text-gray-400 text-sm mt-1">Pacotes selecionados com descontos exclusivos para sua coleção.</p>
+              </div>
+              <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Mais</Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {lotListings.map(l => renderListingCard(l, true))}
+            </div>
+          </section>
+        )}
+
+        {/* Mídias & Colecionáveis (Strict Catalog Style) */}
+        <section>
+          <div className="flex justify-between items-end mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">💿</span> Mídias & Colecionáveis
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">Vinis, CDs, K7s e Laser Discs recém-chegados à loja.</p>
+            </div>
+            <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ir para Loja</Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            {mediaListings.map(l => renderListingCard(l))}
+          </div>
+        </section>
+
+        {/* Equipamentos (Strict Catalog Style) */}
+        {equipmentListings.length > 0 && (
+          <section>
+            <div className="flex justify-between items-end mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🎛️</span> Equipamentos de Som
+                </h2>
+                <p className="text-gray-400 text-sm mt-1">Aparelhos revisados e acessórios de alta fidelidade para o seu setup.</p>
+              </div>
+              <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Todos</Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+              {equipmentListings.map(l => renderListingCard(l))}
+            </div>
+          </section>
+        )}
 
         {/* Featured Users Section */}
         <section className="animate-[fadeIn_0.5s]">
@@ -189,58 +232,6 @@ export const Home: React.FC = () => {
              ))}
           </div>
         </section>
-
-        {/* Super Lotes (Identical to Catalog) */}
-        {lotListings.length > 0 && (
-          <section>
-            <div className="flex justify-between items-end mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🎁</span> Super Lotes Promocionais
-                </h2>
-                <p className="text-gray-400 text-sm mt-1">Pacotes selecionados com descontos exclusivos para colecionadores.</p>
-              </div>
-              <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Todos</Link>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-              {lotListings.map(l => renderListingCard(l))}
-            </div>
-          </section>
-        )}
-
-        {/* Mídias & Colecionáveis (Identical to Catalog) */}
-        <section>
-          <div className="flex justify-between items-end mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">💿</span> Mídias & Colecionáveis
-              </h2>
-              <p className="text-gray-400 text-sm mt-1">Vinis, CDs, K7s e Laser Discs recém-adicionados.</p>
-            </div>
-            <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ir para Loja</Link>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
-            {mediaListings.map(l => renderListingCard(l))}
-          </div>
-        </section>
-
-        {/* Equipamentos (Identical to Catalog) */}
-        {equipmentListings.length > 0 && (
-          <section>
-            <div className="flex justify-between items-end mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🎛️</span> Equipamentos de Som
-                </h2>
-                <p className="text-gray-400 text-sm mt-1">Aparelhos revisados e acessórios de alta fidelidade.</p>
-              </div>
-              <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Todos</Link>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-6">
-              {equipmentListings.map(l => renderListingCard(l))}
-            </div>
-          </section>
-        )}
 
       </div>
     </div>
