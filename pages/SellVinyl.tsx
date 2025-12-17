@@ -5,6 +5,7 @@ import { CatalogItem, Genre, VinylCondition, Listing, ItemType, ProductCondition
 import { getAlbumDetails, getEquipmentDetails } from '../services/geminiService';
 import { searchDiscogs, getDiscogsReleaseDetails } from '../services/discogsService';
 import { useNavigate } from 'react-router-dom';
+import { DiscogsTokenManager } from '../components/DiscogsTokenManager';
 
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -28,9 +29,6 @@ export const SellVinyl: React.FC = () => {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [searchResults, setSearchResults] = useState<CatalogItem[]>([]);
   const [searchSource, setSearchSource] = useState<'LOCAL' | 'DISCOGS' | 'AI' | null>(null);
-
-  const [discogsToken, setDiscogsToken] = useState(localStorage.getItem('discogs_token') || '');
-  const [showConfig, setShowConfig] = useState(false);
 
   const [manualForm, setManualForm] = useState({
     artist: '', 
@@ -59,10 +57,6 @@ export const SellVinyl: React.FC = () => {
   // Lote State
   const [selectedListingIds, setSelectedListingIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    localStorage.setItem('discogs_token', discogsToken);
-  }, [discogsToken]);
-
   const handleItemTypeChange = (newType: ItemType) => {
      if (newType === ItemType.LOTE) {
         setMode('LOTE');
@@ -87,6 +81,8 @@ export const SellVinyl: React.FC = () => {
   const handleSearch = async (e?: React.FormEvent) => {
     if(e) e.preventDefault();
     if (!searchTerm) return;
+
+    const discogsToken = localStorage.getItem('discogs_token') || '';
 
     setIsSearching(true);
     setSearchResults([]);
@@ -173,6 +169,8 @@ export const SellVinyl: React.FC = () => {
     let tracks = item.tracks || [];
     let year = item.year ? item.year.toString() : '';
     let label = item.label || '';
+
+    const discogsToken = localStorage.getItem('discogs_token') || '';
 
     if (item.id.startsWith('discogs-') && discogsToken) {
        setLoadingDetails(true);
@@ -349,6 +347,8 @@ export const SellVinyl: React.FC = () => {
     <div className="min-h-screen bg-vinyl-black py-8 px-4">
       <div className="max-w-4xl mx-auto bg-gray-900 rounded-lg p-6 shadow-xl border border-gray-800">
         <h1 className="text-2xl font-bold text-white mb-6">Criar Anúncio</h1>
+
+        {mode === 'SEARCH' && step === 1 && <DiscogsTokenManager />}
         
         {step === 1 && (
           <div className="space-y-6">
