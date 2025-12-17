@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType, ChatMessage, WantRequest, WantResponse } from './types';
-import { sendSaleNotification, sendReservationRequestNotification, sendReservationDecisionNotification, sendPasswordResetEmail, sendValidationEmail } from './services/notificationService';
-import { supabase, dbUpsert, dbDelete } from './services/supabaseClient';
+import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType, ChatMessage, WantRequest, WantResponse } from './types.ts';
+import { sendSaleNotification, sendReservationRequestNotification, sendReservationDecisionNotification, sendPasswordResetEmail, sendValidationEmail } from './services/notificationService.ts';
+import { supabase, dbUpsert, dbDelete } from './services/supabaseClient.ts';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -114,11 +114,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const { data: wantRequestsData } = await supabase.from('want_requests').select('data');
         const { data: wantResponsesData } = await supabase.from('want_responses').select('data');
 
-        if (usersData) setUsers(usersData.map((row: any) => row.data));
-        if (catalogData) setCatalog(catalogData.map((row: any) => row.data));
-        if (listingsData) setListings(listingsData.map((row: any) => row.data));
-        if (wantRequestsData) setWantRequests(wantRequestsData.map((row: any) => row.data));
-        if (wantResponsesData) setWantResponses(wantResponsesData.map((row: any) => row.data));
+        if (usersData && usersData.length > 0) setUsers(usersData.map((row: any) => row.data));
+        if (catalogData && catalogData.length > 0) setCatalog(catalogData.map((row: any) => row.data));
+        if (listingsData && listingsData.length > 0) setListings(listingsData.map((row: any) => row.data));
+        if (wantRequestsData && wantRequestsData.length > 0) setWantRequests(wantRequestsData.map((row: any) => row.data));
+        if (wantResponsesData && wantResponsesData.length > 0) setWantResponses(wantResponsesData.map((row: any) => row.data));
       } catch (err) {
         console.error("Erro sincronização:", err);
       } finally {
@@ -154,7 +154,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setWantResponses(prev => [...prev, res]);
     dbUpsert('want_responses', res);
 
-    // Notify Buyer
     const req = wantRequests.find(r => r.id === res.requestId);
     if (req) {
       const buyer = users.find(u => u.id === req.buyerId);

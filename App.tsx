@@ -1,24 +1,24 @@
 
 import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
-import { StoreProvider } from './store';
-import { Navbar } from './components/Navbar';
-import { Home } from './pages/Home';
-import { Catalog } from './pages/Catalog';
-import { SellVinyl } from './pages/SellVinyl';
-import { ListingDetails } from './pages/ListingDetails';
-import { Profile } from './pages/Profile';
-import { Login } from './pages/Login';
-import { ResetPassword } from './pages/ResetPassword';
-import { ValidateAccount } from './pages/ValidateAccount';
-import { Favorites } from './pages/Favorites';
-import { EditListing } from './pages/EditListing';
-import { ActivitySidebar } from './components/ActivitySidebar';
-import { Calculator } from './components/Calculator';
-import { AdminDashboard } from './pages/AdminDashboard';
-import { WelcomeModal } from './components/WelcomeModal';
-import { LookingFor } from './pages/LookingFor';
-import { LookingForDetails } from './pages/LookingForDetails';
+import { StoreProvider } from './store.tsx';
+import { Navbar } from './components/Navbar.tsx';
+import { Home } from './pages/Home.tsx';
+import { Catalog } from './pages/Catalog.tsx';
+import { SellVinyl } from './pages/SellVinyl.tsx';
+import { ListingDetails } from './pages/ListingDetails.tsx';
+import { Profile } from './pages/Profile.tsx';
+import { Login } from './pages/Login.tsx';
+import { ResetPassword } from './pages/ResetPassword.tsx';
+import { ValidateAccount } from './pages/ValidateAccount.tsx';
+import { Favorites } from './pages/Favorites.tsx';
+import { EditListing } from './pages/EditListing.tsx';
+import { ActivitySidebar } from './components/ActivitySidebar.tsx';
+import { Calculator } from './components/Calculator.tsx';
+import { AdminDashboard } from './pages/AdminDashboard.tsx';
+import { WelcomeModal } from './components/WelcomeModal.tsx';
+import { LookingFor } from './pages/LookingFor.tsx';
+import { LookingForDetails } from './pages/LookingForDetails.tsx';
 
 const App: React.FC = () => {
   return (
