@@ -47,7 +47,6 @@ export const Profile: React.FC = () => {
     e.preventDefault();
     setPwdStatus(null);
 
-    // Basic Checks
     if (pwdForm.current !== currentUser.password) {
       return setPwdStatus({ type: 'ERROR', message: 'Senha atual incorreta.' });
     }
@@ -68,12 +67,16 @@ export const Profile: React.FC = () => {
 
   const handleShip = (id: string) => {
     const code = trackingInput[id];
-    if (!code) return alert("Digite o código");
+    if (!code) return alert("Por favor, digite o código de rastreio ou 'RETIRADA EM MÃOS'.");
     markAsShipped(id, code);
+    alert("Status atualizado para ENVIADO!");
   };
 
   const handleConfirmReceipt = (id: string) => {
-    if(confirm("Confirmar recebimento?")) confirmReceipt(id);
+    if(confirm("Você confirma que recebeu o item em mãos ou via correios? Ao confirmar, o dinheiro será liberado imediatamente para o vendedor.")) {
+      confirmReceipt(id);
+      alert("Recebimento confirmado! Dinheiro liberado.");
+    }
   };
 
   const handleSoldOutside = (id: string) => {
@@ -161,6 +164,188 @@ export const Profile: React.FC = () => {
           <button onClick={() => setActiveTab('SETTINGS')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'SETTINGS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Configurações</button>
         </div>
 
+        {activeTab === 'SALES' && (
+          <div className="space-y-4 animate-[fadeIn_0.3s]">
+            {myListings.length === 0 ? (
+                <div className="text-center py-20 text-gray-500 bg-gray-900 rounded-2xl border border-dashed border-gray-700">
+                   <p className="mb-4 text-lg">Você ainda não tem anúncios ativos.</p>
+                   <Link to="/sell" className="bg-vinyl-accent text-black font-bold px-6 py-2 rounded-full hover:bg-yellow-600 transition">Começar a Vender Agora</Link>
+                </div>
+            ) : (
+                myListings.map(l => (
+                <div key={l.id} className={`bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 transition-all hover:shadow-xl ${l.status === 'INDISPONÍVEL' ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                    <div className="flex gap-4 flex-1">
+                        <img src={l.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded-lg shadow-lg border border-gray-700" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start">
+                              <div className="truncate">
+                                  <h3 className="font-bold text-white truncate text-lg leading-tight">{l.catalogItem.title}</h3>
+                                  <p className="text-sm text-vinyl-accent font-bold mt-1">R$ {l.price.toFixed(2)}</p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                  {renderStatusBadge(l.status)}
+                                  {l.buyerName && <span className="text-[10px] text-gray-500">Comprador: {l.buyerName}</span>}
+                              </div>
+                          </div>
+                          
+                          {/* AÇÕES DE ENVIO PARA O VENDEDOR */}
+                          {l.status === 'AGUARDANDO_ENVIO' && (
+                            <div className="mt-4 p-3 bg-gray-900 rounded-lg border border-yellow-600/30">
+                               <p className="text-[10px] font-bold text-yellow-500 uppercase mb-2">Item Vendido! Informe o Envio:</p>
+                               <div className="flex gap-2">
+                                  <input 
+                                    type="text" 
+                                    placeholder="Código de Rastreio" 
+                                    className="flex-1 bg-gray-800 text-white text-xs p-2 rounded border border-gray-700 outline-none focus:border-vinyl-accent"
+                                    value={trackingInput[l.id] || ''}
+                                    onChange={(e) => setTrackingInput({...trackingInput, [l.id]: e.target.value})}
+                                  />
+                                  <button 
+                                    onClick={() => handleShip(l.id)}
+                                    className="bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold px-3 py-1 rounded transition"
+                                  >
+                                    INFORMAR ENVIO
+                                  </button>
+                               </div>
+                            </div>
+                          )}
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                              {(l.status === 'DISPONÍVEL' || l.status === 'INDISPONÍVEL') && (
+                                  <>
+                                  <button 
+                                      onClick={() => handleTogglePause(l.id, l.status)} 
+                                      className={`text-[10px] px-3 py-1.5 rounded-lg font-bold border transition-all ${l.status === 'DISPONÍVEL' ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-green-600 text-green-500 hover:bg-green-900/20'}`}
+                                  >
+                                      {l.status === 'DISPONÍVEL' ? 'PAUSAR VENDA' : 'ATIVAR VENDA'}
+                                  </button>
+                                  <Link to={`/edit/${l.id}`} className="text-[10px] bg-blue-900/30 text-blue-400 border border-blue-800 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-800/40 transition">EDITAR</Link>
+                                  <button onClick={() => handleDelete(l.id)} className="text-[10px] bg-red-900/30 text-red-400 border border-red-800 px-3 py-1.5 rounded-lg font-bold hover:bg-red-800/40 transition">EXCLUIR</button>
+                                  </>
+                              )}
+                              
+                              {l.buyerId && (
+                                <button onClick={() => handleOpenChat(l, 'BUYER')} className="text-[10px] bg-indigo-900/50 text-indigo-300 border border-indigo-800 px-3 py-1.5 rounded-lg font-bold transition">CHAT COMPRADOR</button>
+                              )}
+
+                              {l.status === 'CONCLUÍDO' && (
+                                <button onClick={() => setReceiptData({listing: l, role: 'SELLER'})} className="text-[10px] border border-gray-600 text-gray-400 px-3 py-1.5 rounded-lg font-bold">VER RECIBO</button>
+                              )}
+                          </div>
+                        </div>
+                    </div>
+                </div>
+                ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 'PURCHASES' && (
+           <div className="space-y-4 animate-[fadeIn_0.3s]">
+              {myPurchases.length === 0 ? (
+                <div className="text-center py-20 text-gray-500 bg-gray-900 rounded-2xl border border-dashed border-gray-700">
+                   <p className="text-lg">Você ainda não comprou nada.</p>
+                   <Link to="/catalog" className="text-vinyl-accent hover:underline mt-2 inline-block">Explorar o Catálogo</Link>
+                </div>
+              ) : (
+                myPurchases.map(l => (
+                  <div key={l.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4">
+                     <img src={l.catalogItem.coverUrl} className="w-16 h-16 object-cover rounded shadow" />
+                     <div className="flex-1">
+                        <div className="flex justify-between">
+                           <h4 className="font-bold text-white">{l.catalogItem.title}</h4>
+                           {renderStatusBadge(l.status)}
+                        </div>
+                        <p className="text-xs text-gray-500">Vendedor: {l.sellerName}</p>
+                        {l.trackingCode && (
+                          <p className="text-[10px] text-vinyl-accent mt-1">Rastreio: <span className="font-mono text-white">{l.trackingCode}</span></p>
+                        )}
+                        
+                        <div className="mt-4 flex gap-2">
+                           {/* LIBERADO BOTÃO PARA AGUARDANDO ENVIO E ENVIADO */}
+                           {(l.status === 'ENVIADO' || l.status === 'AGUARDANDO_ENVIO') && (
+                              <button 
+                                onClick={() => handleConfirmReceipt(l.id)} 
+                                className="text-[10px] bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded-lg font-bold shadow-lg shadow-green-900/20"
+                              >
+                                CONFIRMAR RECEBIMENTO E LIBERAR PAGAMENTO
+                              </button>
+                           )}
+                           
+                           <button onClick={() => handleOpenChat(l, 'SELLER')} className="text-[10px] bg-gray-700 text-white px-3 py-1.5 rounded-lg font-bold">CHAT VENDEDOR</button>
+                           
+                           {l.status === 'CONCLUÍDO' && !l.buyerReviewedSeller && (
+                              <button onClick={() => { setReviewTarget({id: l.sellerId, name: l.sellerName, listingId: l.id, type: 'SELLER'}); setIsReviewModalOpen(true); }} className="text-[10px] bg-vinyl-accent text-black px-3 py-1.5 rounded-lg font-bold">AVALIAR VENDEDOR</button>
+                           )}
+                           
+                           {(l.status === 'CONCLUÍDO' || l.status === 'ENVIADO') && (
+                              <button onClick={() => setReceiptData({listing: l, role: 'BUYER'})} className="text-[10px] border border-gray-600 text-gray-400 px-3 py-1.5 rounded-lg font-bold">VER RECIBO</button>
+                           )}
+                        </div>
+                     </div>
+                  </div>
+                ))
+              )}
+           </div>
+        )}
+
+        {/* ... manter outras abas (Reservas, Financeiro, Settings) ... */}
+        {activeTab === 'RESERVATIONS' && (
+           <div className="space-y-4 animate-[fadeIn_0.3s]">
+              {myIncomingReservations.length === 0 ? (
+                <div className="text-center py-20 text-gray-500 bg-gray-900 rounded-2xl border border-dashed border-gray-700">
+                   <p className="text-lg">Sem solicitações de reserva pendentes.</p>
+                </div>
+              ) : (
+                myIncomingReservations.map(res => {
+                  const listing = listings.find(l => l.id === res.listingId);
+                  return (
+                    <div key={res.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 items-center">
+                       <img src={listing?.catalogItem.coverUrl} className="w-12 h-12 object-cover rounded" />
+                       <div className="flex-1 text-center md:text-left">
+                          <p className="text-sm font-bold text-white">Solicitação de reserva de 5 dias</p>
+                          <p className="text-xs text-gray-500">Item: {listing?.catalogItem.title}</p>
+                       </div>
+                       <div className="flex gap-2 w-full md:w-auto">
+                          <button onClick={() => approveReservation(res.id)} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold">APROVAR</button>
+                          <button onClick={() => rejectReservation(res.id)} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold">RECUSAR</button>
+                       </div>
+                    </div>
+                  );
+                })
+              )}
+           </div>
+        )}
+
+        {activeTab === 'FINANCIAL' && (
+           <div className="animate-[fadeIn_0.3s] space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                    <h3 className="text-white font-bold mb-4 flex items-center gap-2"><span className="text-vinyl-accent">🏦</span> Dados para Saque (Pix)</h3>
+                    {currentUser.bankInfo ? (
+                      <div className="space-y-2 text-sm">
+                        <p className="text-gray-400">Banco: <span className="text-white">{currentUser.bankInfo.bankName}</span></p>
+                        <p className="text-gray-400">Chave Pix: <span className="text-white">{currentUser.bankInfo.pixKey}</span></p>
+                        <button onClick={() => alert("Função de edição em breve")} className="text-vinyl-accent text-xs mt-2 hover:underline">Editar Dados</button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                         <p className="text-gray-500 italic text-sm mb-4">Nenhum dado bancário cadastrado.</p>
+                         <button onClick={() => alert("Função de cadastro em breve")} className="bg-gray-700 text-white text-[10px] px-4 py-2 rounded-lg font-bold">Cadastrar Chave Pix</button>
+                      </div>
+                    )}
+                 </div>
+                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                    <h3 className="text-white font-bold mb-4 flex items-center gap-2"><span className="text-vinyl-accent">📈</span> Ações Rápidas</h3>
+                    <div className="flex flex-col gap-3">
+                       <button onClick={() => depositFunds(50)} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl text-xs transition border border-gray-600">Simular Depósito R$ 50</button>
+                       <button onClick={() => alert("Saques processados em até 24h")} className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-yellow-900/10">Solicitar Saque do Saldo</button>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        )}
+
         {activeTab === 'SETTINGS' && (
            <div className="max-w-lg mx-auto animate-[fadeIn_0.3s] space-y-8">
               <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl">
@@ -214,192 +399,11 @@ export const Profile: React.FC = () => {
                     >
                        Atualizar Senha
                     </button>
-                    
-                    <p className="text-[10px] text-gray-500 text-center mt-2 italic">A nova senha deve ter no mínimo 8 dígitos, uma letra maiúscula e um número.</p>
                  </form>
               </div>
-
-              <div className="bg-gray-900/50 p-6 rounded-2xl border border-dashed border-gray-800 text-center">
-                 <h4 className="text-gray-400 font-bold text-sm mb-2">Informações da Conta</h4>
-                 <p className="text-xs text-gray-500">Registrado desde: {new Date(parseInt(currentUser.id.split('-')[1])).toLocaleDateString('pt-BR')}</p>
-                 <p className="text-xs text-gray-500">ID de Usuário: {currentUser.id}</p>
-              </div>
            </div>
         )}
 
-        {activeTab === 'OPPORTUNITIES' && (
-           <div className="space-y-6 animate-[fadeIn_0.3s]">
-              <div className="bg-vinyl-accent/10 border border-vinyl-accent/30 p-4 rounded-xl flex items-center gap-4">
-                 <span className="text-2xl">💡</span>
-                 <p className="text-sm text-vinyl-accent font-medium">Estes são itens que outros usuários estão buscando. Se você tiver algum deles em estoque, clique para fazer uma proposta oficial!</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {activeOpportunities.length === 0 ? (
-                    <div className="col-span-full py-20 text-center text-gray-500 bg-gray-900 rounded-2xl border border-dashed border-gray-800">
-                       <p>Nenhuma oportunidade aberta no momento.</p>
-                       <p className="text-xs mt-2">Assim que alguém postar um "Procuro Por", ele aparecerá aqui para você.</p>
-                    </div>
-                 ) : (
-                    activeOpportunities.map(req => (
-                       <Link to={`/procuro-por/${req.id}`} key={req.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 hover:border-vinyl-accent transition group flex gap-4">
-                          <img src={req.imageUrl} className="w-16 h-16 object-cover rounded shadow group-hover:scale-105 transition" />
-                          <div className="flex-1 min-w-0">
-                             <h4 className="text-white font-bold truncate">{req.title}</h4>
-                             <p className="text-vinyl-accent text-xs font-bold mb-1">{req.artist || 'Artista não informado'}</p>
-                             <div className="flex items-center gap-2 mt-2">
-                                <div className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center text-[8px] text-gray-400 font-bold">{req.buyerName.charAt(0)}</div>
-                                <span className="text-[10px] text-gray-500">Solicitado por {req.buyerName}</span>
-                             </div>
-                          </div>
-                          <div className="flex items-center">
-                             <span className="bg-gray-900 p-2 rounded-lg text-vinyl-accent group-hover:bg-vinyl-accent group-hover:text-black transition text-xs font-bold">Propor</span>
-                          </div>
-                       </Link>
-                    ))
-                 )}
-              </div>
-           </div>
-        )}
-
-        {activeTab === 'FINANCIAL' && (
-           <div className="animate-[fadeIn_0.3s] space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-                    <h3 className="text-white font-bold mb-4 flex items-center gap-2"><span className="text-vinyl-accent">🏦</span> Dados para Saque (Pix)</h3>
-                    {currentUser.bankInfo ? (
-                      <div className="space-y-2 text-sm">
-                        <p className="text-gray-400">Banco: <span className="text-white">{currentUser.bankInfo.bankName}</span></p>
-                        <p className="text-gray-400">Chave Pix: <span className="text-white">{currentUser.bankInfo.pixKey}</span></p>
-                        <button onClick={() => alert("Função de edição em breve")} className="text-vinyl-accent text-xs mt-2 hover:underline">Editar Dados</button>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4">
-                         <p className="text-gray-500 italic text-sm mb-4">Nenhum dado bancário cadastrado.</p>
-                         <button onClick={() => alert("Função de cadastro em breve")} className="bg-gray-700 text-white text-[10px] px-4 py-2 rounded-lg font-bold">Cadastrar Chave Pix</button>
-                      </div>
-                    )}
-                 </div>
-                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-                    <h3 className="text-white font-bold mb-4 flex items-center gap-2"><span className="text-vinyl-accent">📈</span> Ações Rápidas</h3>
-                    <div className="flex flex-col gap-3">
-                       <button onClick={() => depositFunds(50)} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl text-xs transition border border-gray-600">Simular Depósito R$ 50</button>
-                       <button onClick={() => alert("Saques processados em até 24h")} className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-yellow-900/10">Solicitar Saque do Saldo</button>
-                    </div>
-                 </div>
-              </div>
-           </div>
-        )}
-
-        {activeTab === 'SALES' && (
-          <div className="space-y-4 animate-[fadeIn_0.3s]">
-            {myListings.length === 0 ? (
-                <div className="text-center py-20 text-gray-500 bg-gray-900 rounded-2xl border border-dashed border-gray-700">
-                   <p className="mb-4 text-lg">Você ainda não tem anúncios ativos.</p>
-                   <Link to="/sell" className="bg-vinyl-accent text-black font-bold px-6 py-2 rounded-full hover:bg-yellow-600 transition">Começar a Vender Agora</Link>
-                </div>
-            ) : (
-                myListings.map(l => (
-                <div key={l.id} className={`bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 transition-all hover:shadow-xl ${l.status === 'INDISPONÍVEL' ? 'opacity-60 grayscale-[0.5]' : ''}`}>
-                    <div className="flex gap-4 flex-1">
-                        <img src={l.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded-lg shadow-lg border border-gray-700" />
-                        <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                            <div className="truncate">
-                                <h3 className="font-bold text-white truncate text-lg leading-tight">{l.catalogItem.title}</h3>
-                                <p className="text-sm text-vinyl-accent font-bold mt-1">R$ {l.price.toFixed(2)}</p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                                {renderStatusBadge(l.status)}
-                            </div>
-                        </div>
-                        
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            {(l.status === 'DISPONÍVEL' || l.status === 'INDISPONÍVEL') && (
-                                <>
-                                <button 
-                                    onClick={() => handleTogglePause(l.id, l.status)} 
-                                    className={`text-[10px] px-3 py-1.5 rounded-lg font-bold border transition-all ${l.status === 'DISPONÍVEL' ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-green-600 text-green-500 hover:bg-green-900/20'}`}
-                                >
-                                    {l.status === 'DISPONÍVEL' ? 'PAUSAR VENDA' : 'ATIVAR VENDA'}
-                                </button>
-                                <Link to={`/edit/${l.id}`} className="text-[10px] bg-blue-900/30 text-blue-400 border border-blue-800 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-800/40 transition">EDITAR</Link>
-                                <button onClick={() => handleDelete(l.id)} className="text-[10px] bg-red-900/30 text-red-400 border border-red-800 px-3 py-1.5 rounded-lg font-bold hover:bg-red-800/40 transition">EXCLUIR</button>
-                                </>
-                            )}
-                            
-                            {l.buyerId && (
-                            <button onClick={() => handleOpenChat(l, 'BUYER')} className="text-[10px] bg-indigo-900/50 text-indigo-300 border border-indigo-800 px-3 py-1.5 rounded-lg font-bold transition">CHAT COMPRADOR</button>
-                            )}
-                        </div>
-                        </div>
-                    </div>
-                </div>
-                ))
-            )}
-          </div>
-        )}
-
-        {activeTab === 'PURCHASES' && (
-           <div className="space-y-4 animate-[fadeIn_0.3s]">
-              {myPurchases.length === 0 ? (
-                <div className="text-center py-20 text-gray-500 bg-gray-900 rounded-2xl border border-dashed border-gray-700">
-                   <p className="text-lg">Você ainda não comprou nada.</p>
-                   <Link to="/catalog" className="text-vinyl-accent hover:underline mt-2 inline-block">Explorar o Catálogo</Link>
-                </div>
-              ) : (
-                myPurchases.map(l => (
-                  <div key={l.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4">
-                     <img src={l.catalogItem.coverUrl} className="w-16 h-16 object-cover rounded shadow" />
-                     <div className="flex-1">
-                        <div className="flex justify-between">
-                           <h4 className="font-bold text-white">{l.catalogItem.title}</h4>
-                           {renderStatusBadge(l.status)}
-                        </div>
-                        <p className="text-xs text-gray-500">{l.sellerName}</p>
-                        <div className="mt-4 flex gap-2">
-                           {l.status === 'ENVIADO' && (
-                              <button onClick={() => handleConfirmReceipt(l.id)} className="text-[10px] bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold">CONFIRMAR RECEBIMENTO</button>
-                           )}
-                           <button onClick={() => handleOpenChat(l, 'SELLER')} className="text-[10px] bg-gray-700 text-white px-3 py-1.5 rounded-lg font-bold">CHAT VENDEDOR</button>
-                           {l.status === 'CONCLUÍDO' && !l.buyerReviewedSeller && (
-                              <button onClick={() => { setReviewTarget({id: l.sellerId, name: l.sellerName, listingId: l.id, type: 'SELLER'}); setIsReviewModalOpen(true); }} className="text-[10px] bg-vinyl-accent text-black px-3 py-1.5 rounded-lg font-bold">AVALIAR VENDEDOR</button>
-                           )}
-                           <button onClick={() => setReceiptData({listing: l, role: 'BUYER'})} className="text-[10px] border border-gray-600 text-gray-400 px-3 py-1.5 rounded-lg font-bold">VER RECIBO</button>
-                        </div>
-                     </div>
-                  </div>
-                ))
-              )}
-           </div>
-        )}
-
-        {activeTab === 'RESERVATIONS' && (
-           <div className="space-y-4 animate-[fadeIn_0.3s]">
-              {myIncomingReservations.length === 0 ? (
-                <div className="text-center py-20 text-gray-500 bg-gray-900 rounded-2xl border border-dashed border-gray-800">
-                   <p className="text-lg">Sem solicitações de reserva pendentes.</p>
-                </div>
-              ) : (
-                myIncomingReservations.map(res => {
-                  const listing = listings.find(l => l.id === res.listingId);
-                  return (
-                    <div key={res.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 items-center">
-                       <img src={listing?.catalogItem.coverUrl} className="w-12 h-12 object-cover rounded" />
-                       <div className="flex-1 text-center md:text-left">
-                          <p className="text-sm font-bold text-white">{res.buyerId} solicitou reserva de 5 dias</p>
-                          <p className="text-xs text-gray-500">Item: {listing?.catalogItem.title}</p>
-                       </div>
-                       <div className="flex gap-2 w-full md:w-auto">
-                          <button onClick={() => approveReservation(res.id)} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold">APROVAR</button>
-                          <button onClick={() => rejectReservation(res.id)} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold">RECUSAR</button>
-                       </div>
-                    </div>
-                  );
-                })
-              )}
-           </div>
-        )}
       </div>
     </div>
   );
