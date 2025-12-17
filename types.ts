@@ -33,7 +33,8 @@ export enum ItemType {
   CD = 'CD',
   SERATO = 'Serato',
   EQUIPMENT = 'Equipamento',
-  FELTRO = 'Feltro'
+  FELTRO = 'Feltro',
+  LOTE = 'Lote'
 }
 
 export type ProductCondition = 'NOVO' | 'USADO';
@@ -45,10 +46,11 @@ export interface AppNotification {
   message: string;
   read: boolean;
   createdAt: string;
-  type?: 'INFO' | 'RESERVATION_REQUEST' | 'SALE_ALERT' | 'CHAT_MESSAGE';
+  type?: 'INFO' | 'RESERVATION_REQUEST' | 'SALE_ALERT' | 'CHAT_MESSAGE' | 'LOT_UPDATE';
   metadata?: {
     reservationId?: string;
     listingId?: string;
+    lotId?: string;
     actionUrl?: string;
   };
 }
@@ -126,6 +128,12 @@ export interface CatalogItem {
 
 export type ListingStatus = 'DISPONÍVEL' | 'RESERVADO' | 'AGUARDANDO_ENVIO' | 'ENVIADO' | 'CONCLUÍDO' | 'VENDIDO_FORA';
 
+export interface Lot {
+  id: string;
+  listingIds: string[]; // IDs dos anúncios individuais que compõem o lote
+  originalTotalPrice: number;
+}
+
 export interface Listing {
   id: string;
   sellerId: string;
@@ -147,6 +155,7 @@ export interface Listing {
   finalTotalPrice?: number;
   sellerReviewedBuyer?: boolean;
   buyerReviewedSeller?: boolean;
+  lotConfig?: Lot; // Configuração se for um anúncio do tipo LOTE
 }
 
 export interface Review {

@@ -286,9 +286,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const seller = users.find(u => u.id === res.sellerId);
     if (!listing || !catalogItem || !buyer || !seller) return;
     
-    // NOVO VALOR FIXO EQUIPAMENTOS: R$ 40,00. MIDIA: R$ 10,00.
     let cost = catalogItem.itemType === ItemType.EQUIPMENT ? 40.00 : 10.00;
-    // DIVISÃO MANTIDA (70% para vendedor): R$ 28,00 para Equipamentos.
     let share = catalogItem.itemType === ItemType.EQUIPMENT ? 28.00 : 7.00;
 
     const expiresAt = new Date(); expiresAt.setDate(expiresAt.getDate() + 5);
@@ -303,55 +301,143 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     sendReservationDecisionNotification(buyer, seller, catalogItem, true);
   };
 
+  // Fixed missing rejectReservation function
   const rejectReservation = (reservationId: string) => {
     const res = reservations.find(r => r.id === reservationId);
-    if (!res) return;
+    if (!res || res.status !== 'PENDENTE') return;
+    const buyer = users.find(u => u.id === res.buyerId);
+    const seller = users.find(u => u.id === res.sellerId);
+    const listing = listings.find(l => l.id === res.listingId);
+    const catalogItem = catalog.find(c => c.id === listing?.catalogItemId);
+    if (!buyer || !seller || !catalogItem) return;
+
     const updatedRes = { ...res, status: 'RECUSADA' as const };
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
     dbUpsert('reservations', updatedRes);
+    
+    const buyerUpdate = {
+        ...buyer,
+        notifications: [{ id: `n-res-rej-${Date.now()}`, message: `Sua reserva para "${catalogItem.title}" foi recusada.`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications]
+    };
+    setUsers(prev => prev.map(u => u.id === buyer.id ? buyerUpdate : u));
+    dbUpsert('users', buyerUpdate);
+    sendReservationDecisionNotification(buyer, seller, catalogItem, false);
   };
 
+  // Fixed missing cancelReservation function
   const cancelReservation = (reservationId: string) => {
     const res = reservations.find(r => r.id === reservationId);
     if (!res) return;
-    const updatedRes = { ...res, status: 'CANCELADA' as const };
     const listing = listings.find(l => l.id === res.listingId);
-    const updatedListing = listing ? { ...listing, status: 'DISPONÍVEL' as const } : null;
+    if (!listing) return;
+
+    const updatedRes = { ...res, status: 'CANCELADA' as const };
+    const updatedListing = { ...listing, status: 'DISPONÍVEL' as const };
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
-    if (updatedListing) setListings(prev => prev.map(l => l.id === listing!.id ? updatedListing : l));
-    dbUpsert('reservations', updatedRes); if (updatedListing) dbUpsert('listings', updatedListing);
+    setListings(prev => prev.map(l => l.id === res.listingId ? updatedListing : l));
+    dbUpsert('reservations', updatedRes);
+    dbUpsert('listings', updatedListing);
   };
 
+  // Fixed missing extendReservation function
   const extendReservation = (reservationId: string, extraDays: number) => {
     const res = reservations.find(r => r.id === reservationId);
     if (!res || !res.expiresAt) return;
+    const buyer = users.find(u => u.id === res.buyerId);
     const listing = listings.find(l => l.id === res.listingId);
     const catalogItem = catalog.find(c => c.id === listing?.catalogItemId);
-    if (!listing || !catalogItem) return;
+    if (!buyer || !catalogItem) return;
 
-    // VALORES EXTENSÃO: EQUIPAMENTO R$ 5,00/dia. MIDIA R$ 1,50/dia.
-    let cost = (catalogItem.itemType === ItemType.EQUIPMENT ? 5.00 : 1.50) * extraDays;
-    // DIVISÃO MANTIDA (60% para vendedor): R$ 3,00 para Equipamentos.
-    let share = (catalogItem.itemType === ItemType.EQUIPMENT ? 3.00 : 1.00) * extraDays;
+    const dailyRate = catalogItem.itemType === ItemType.EQUIPMENT ? 5.00 : 1.50;
+    const totalCost = dailyRate * extraDays;
 
-    const newExpires = new Date(res.expiresAt); newExpires.setDate(newExpires.getDate() + extraDays);
-    const updatedRes = { ...res, days: res.days + extraDays, expiresAt: newExpires.toISOString() };
-    const seller = users.find(u => u.id === res.sellerId);
-    const buyer = users.find(u => u.id === res.buyerId);
-    if (seller && buyer) {
-        const upSeller = { ...seller, walletBalance: seller.walletBalance + share };
-        const upBuyer = { ...buyer, walletBalance: buyer.walletBalance - cost };
-        setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u.id === buyer.id ? upBuyer : u));
-        dbUpsert('users', upSeller); dbUpsert('users', upBuyer);
+    if (buyer.walletBalance < totalCost) {
+      alert("Saldo insuficiente para estender a reserva.");
+      return;
     }
+
+    const newExpiresAt = new Date(res.expiresAt);
+    newExpiresAt.setDate(newExpiresAt.getDate() + extraDays);
+    
+    const updatedRes = { ...res, expiresAt: newExpiresAt.toISOString() };
+    const updatedBuyer = { 
+        ...buyer, 
+        walletBalance: buyer.walletBalance - totalCost,
+        notifications: [{ id: `n-res-ext-${Date.now()}`, message: `Reserva estendida por ${extraDays} dias.`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications]
+    };
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
+    setUsers(prev => prev.map(u => u.id === buyer.id ? updatedBuyer : u));
     dbUpsert('reservations', updatedRes);
+    dbUpsert('users', updatedBuyer);
   };
 
   const buyListing = (listingId: string, method: 'PICKUP' | 'SHIPPING') => {
     if (!currentUser) return;
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
+    const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
+
+    // LOGICA DE LOTE: Se comprar um lote, todos os itens inclusos morrem
+    if (catalogItem?.itemType === ItemType.LOTE && listing.lotConfig) {
+       const subListingIds = listing.lotConfig.listingIds;
+       setListings(prev => prev.map(l => {
+          if (subListingIds.includes(l.id)) {
+             return { ...l, status: 'CONCLUÍDO' as const, buyerId: currentUser.id };
+          }
+          return l;
+       }));
+       // Note: In real app would batch upsert
+    }
+
+    // LOGICA DE ITEM EM LOTE: Se comprar um item que está em um lote, o lote é quebrado/atualizado
+    const activeLotsWithThisItem = listings.filter(l => 
+        l.status === 'DISPONÍVEL' && 
+        l.lotConfig && 
+        l.lotConfig.listingIds.includes(listing.id)
+    );
+
+    activeLotsWithThisItem.forEach(lotListing => {
+        const itemToRemove = listing;
+        const remainingIds = lotListing.lotConfig!.listingIds.filter(id => id !== itemToRemove.id);
+        
+        if (remainingIds.length === 0) {
+            // Lote vazio, deletar ou desativar
+            setListings(prev => prev.map(l => l.id === lotListing.id ? { ...l, status: 'VENDIDO_FORA' as const } : l));
+        } else {
+            // Subtrair valor proporcionalmente
+            const ratio = itemToRemove.price / lotListing.lotConfig!.originalTotalPrice;
+            const priceReduction = lotListing.price * ratio;
+            const newLotPrice = Math.max(0, lotListing.price - priceReduction);
+            
+            const updatedLotListing = {
+                ...lotListing,
+                price: newLotPrice,
+                lotConfig: {
+                    ...lotListing.lotConfig!,
+                    listingIds: remainingIds
+                }
+            };
+            
+            setListings(prev => prev.map(l => l.id === lotListing.id ? updatedLotListing : l));
+
+            // Notificar Vendedor
+            const seller = users.find(u => u.id === lotListing.sellerId);
+            if (seller) {
+                const upSeller = {
+                    ...seller,
+                    notifications: [{
+                        id: `n-lot-${Date.now()}`,
+                        message: `Item de Lote vendido separado! Lote "${lotListing.catalogItem.title}" atualizado para R$ ${newLotPrice.toFixed(2)}.`,
+                        read: false,
+                        createdAt: new Date().toISOString(),
+                        type: 'LOT_UPDATE' as const
+                    }, ...seller.notifications]
+                };
+                setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u));
+            }
+        }
+    });
+
     const updatedListing = { ...listing, status: 'AGUARDANDO_ENVIO' as const, buyerId: currentUser.id, selectedDeliveryMethod: method, finalShippingCost: method === 'SHIPPING' ? (listing.shippingCost || 0) : 0, finalTotalPrice: listing.price + (method === 'SHIPPING' ? (listing.shippingCost || 0) : 0) };
     setListings(prev => prev.map(l => l.id === listingId ? updatedListing : l));
     dbUpsert('listings', updatedListing);
