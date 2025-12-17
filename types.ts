@@ -46,11 +46,12 @@ export interface AppNotification {
   message: string;
   read: boolean;
   createdAt: string;
-  type?: 'INFO' | 'RESERVATION_REQUEST' | 'SALE_ALERT' | 'CHAT_MESSAGE' | 'LOT_UPDATE';
+  type?: 'INFO' | 'RESERVATION_REQUEST' | 'SALE_ALERT' | 'CHAT_MESSAGE' | 'LOT_UPDATE' | 'WANT_RESPONSE';
   metadata?: {
     reservationId?: string;
     listingId?: string;
     lotId?: string;
+    wantRequestId?: string;
     actionUrl?: string;
   };
 }
@@ -130,7 +131,7 @@ export type ListingStatus = 'DISPONÍVEL' | 'INDISPONÍVEL' | 'RESERVADO' | 'AGU
 
 export interface Lot {
   id: string;
-  listingIds: string[]; // IDs dos anúncios individuais que compõem o lote
+  listingIds: string[]; 
   originalTotalPrice: number;
 }
 
@@ -155,7 +156,31 @@ export interface Listing {
   finalTotalPrice?: number;
   sellerReviewedBuyer?: boolean;
   buyerReviewedSeller?: boolean;
-  lotConfig?: Lot; // Configuração se for um anúncio do tipo LOTE
+  lotConfig?: Lot; 
+}
+
+export interface WantRequest {
+  id: string;
+  buyerId: string;
+  buyerName: string;
+  title: string;
+  artist: string;
+  description: string;
+  imageUrl: string;
+  createdAt: string;
+  status: 'ABERTO' | 'FINALIZADO';
+}
+
+export interface WantResponse {
+  id: string;
+  requestId: string;
+  sellerId: string;
+  sellerName: string;
+  listingId?: string; // Se o vendedor já tiver postado
+  price: number;
+  condition: VinylCondition;
+  message: string;
+  createdAt: string;
 }
 
 export interface Review {

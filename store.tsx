@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType, ChatMessage } from './types';
+import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType, ChatMessage, WantRequest, WantResponse } from './types';
 import { sendSaleNotification, sendReservationRequestNotification, sendReservationDecisionNotification, sendPasswordResetEmail, sendValidationEmail } from './services/notificationService';
 import { supabase, dbUpsert, dbDelete } from './services/supabaseClient';
 
@@ -12,6 +12,8 @@ interface StoreContextType {
   reviews: Review[];
   reservations: Reservation[];
   messages: ChatMessage[];
+  wantRequests: WantRequest[];
+  wantResponses: WantResponse[];
   isLoadingDB: boolean; 
   login: (email: string, password?: string) => void;
   register: (user: User) => string | null;
@@ -44,6 +46,9 @@ interface StoreContextType {
   adminCreateUser: (newUser: User) => void; 
   sendMessage: (listingId: string, receiverId: string, text: string) => void;
   toggleListingAvailability: (listingId: string) => void;
+  addWantRequest: (req: WantRequest) => void;
+  respondToWantRequest: (res: WantResponse) => void;
+  deleteWantRequest: (id: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -55,6 +60,8 @@ const DB_KEYS = {
   REVIEWS: 'vd_db_reviews',
   RESERVATIONS: 'vd_db_reservations',
   MESSAGES: 'vd_db_messages',
+  WANT_REQUESTS: 'vd_db_want_requests',
+  WANT_RESPONSES: 'vd_db_want_responses',
   CURRENT_USER_ID: 'vd_auth_uid'
 };
 
@@ -83,6 +90,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [reviews, setReviews] = useState<Review[]>(() => loadFromDB(DB_KEYS.REVIEWS, []));
   const [reservations, setReservations] = useState<Reservation[]>(() => loadFromDB(DB_KEYS.RESERVATIONS, []));
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadFromDB(DB_KEYS.MESSAGES, []));
+  const [wantRequests, setWantRequests] = useState<WantRequest[]>(() => loadFromDB(DB_KEYS.WANT_REQUESTS, []));
+  const [wantResponses, setWantResponses] = useState<WantResponse[]>(() => loadFromDB(DB_KEYS.WANT_RESPONSES, []));
   const [isLoadingDB, setIsLoadingDB] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -102,16 +111,14 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const { data: usersData } = await supabase.from('users').select('data');
         const { data: catalogData } = await supabase.from('catalog').select('data');
         const { data: listingsData } = await supabase.from('listings').select('data');
-        const { data: reviewsData } = await supabase.from('reviews').select('data');
-        const { data: reservationsData } = await supabase.from('reservations').select('data');
-        const { data: messagesData } = await supabase.from('messages').select('data');
+        const { data: wantRequestsData } = await supabase.from('want_requests').select('data');
+        const { data: wantResponsesData } = await supabase.from('want_responses').select('data');
 
         if (usersData) setUsers(usersData.map((row: any) => row.data));
         if (catalogData) setCatalog(catalogData.map((row: any) => row.data));
         if (listingsData) setListings(listingsData.map((row: any) => row.data));
-        if (reviewsData) setReviews(reviewsData.map((row: any) => row.data));
-        if (reservationsData) setReservations(reservationsData.map((row: any) => row.data));
-        if (messagesData) setMessages(messagesData.map((row: any) => row.data));
+        if (wantRequestsData) setWantRequests(wantRequestsData.map((row: any) => row.data));
+        if (wantResponsesData) setWantResponses(wantResponsesData.map((row: any) => row.data));
       } catch (err) {
         console.error("Erro sincronização:", err);
       } finally {
@@ -127,6 +134,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => saveToDB(DB_KEYS.REVIEWS, reviews), [reviews]);
   useEffect(() => saveToDB(DB_KEYS.RESERVATIONS, reservations), [reservations]);
   useEffect(() => saveToDB(DB_KEYS.MESSAGES, messages), [messages]);
+  useEffect(() => saveToDB(DB_KEYS.WANT_REQUESTS, wantRequests), [wantRequests]);
+  useEffect(() => saveToDB(DB_KEYS.WANT_RESPONSES, wantResponses), [wantResponses]);
   
   useEffect(() => {
     if (currentUser) {
@@ -135,6 +144,46 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       localStorage.removeItem(DB_KEYS.CURRENT_USER_ID);
     }
   }, [currentUser]);
+
+  const addWantRequest = (req: WantRequest) => {
+    setWantRequests(prev => [req, ...prev]);
+    dbUpsert('want_requests', req);
+  };
+
+  const respondToWantRequest = (res: WantResponse) => {
+    setWantResponses(prev => [...prev, res]);
+    dbUpsert('want_responses', res);
+
+    // Notify Buyer
+    const req = wantRequests.find(r => r.id === res.requestId);
+    if (req) {
+      const buyer = users.find(u => u.id === req.buyerId);
+      if (buyer) {
+        const updatedBuyer = {
+          ...buyer,
+          notifications: [
+            {
+              id: `n-want-${Date.now()}`,
+              message: `${res.sellerName} respondeu ao seu pedido por "${req.title}"!`,
+              read: false,
+              createdAt: new Date().toISOString(),
+              type: 'WANT_RESPONSE' as const,
+              metadata: { wantRequestId: req.id }
+            },
+            ...(buyer.notifications || [])
+          ]
+        };
+        setUsers(prev => prev.map(u => u.id === buyer.id ? updatedBuyer : u));
+        dbUpsert('users', updatedBuyer);
+      }
+    }
+  };
+
+  const deleteWantRequest = (id: string) => {
+    setWantRequests(prev => prev.filter(r => r.id !== id));
+    setWantResponses(prev => prev.filter(res => res.requestId !== id));
+    dbDelete('want_requests', id);
+  };
 
   const sendMessage = (listingId: string, receiverId: string, text: string) => {
     if (!currentUser) return;
@@ -238,10 +287,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const toggleListingAvailability = (id: string) => {
     const listing = listings.find(l => l.id === id);
     if (!listing) return;
-    
-    // Only allow toggling if current status is DISPONÍVEL or INDISPONÍVEL
     if (listing.status !== 'DISPONÍVEL' && listing.status !== 'INDISPONÍVEL') return;
-
     const newStatus: ListingStatus = listing.status === 'DISPONÍVEL' ? 'INDISPONÍVEL' : 'DISPONÍVEL';
     const updated = { ...listing, status: newStatus };
     setListings(prev => prev.map(l => l.id === id ? updated : l));
@@ -322,11 +368,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const listing = listings.find(l => l.id === res.listingId);
     const catalogItem = catalog.find(c => c.id === listing?.catalogItemId);
     if (!buyer || !seller || !catalogItem) return;
-
     const updatedRes = { ...res, status: 'RECUSADA' as const };
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
     dbUpsert('reservations', updatedRes);
-    
     const buyerUpdate = {
         ...buyer,
         notifications: [{ id: `n-res-rej-${Date.now()}`, message: `Sua reserva para "${catalogItem.title}" foi recusada.`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications]
@@ -341,7 +385,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!res) return;
     const listing = listings.find(l => l.id === res.listingId);
     if (!listing) return;
-
     const updatedRes = { ...res, status: 'CANCELADA' as const };
     const updatedListing = { ...listing, status: 'DISPONÍVEL' as const };
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
@@ -357,23 +400,16 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const listing = listings.find(l => l.id === res.listingId);
     const catalogItem = catalog.find(c => c.id === listing?.catalogItemId);
     if (!buyer || !catalogItem) return;
-
     const dailyRate = catalogItem.itemType === ItemType.EQUIPMENT ? 5.00 : 1.50;
     const totalCost = dailyRate * extraDays;
-
-    if (buyer.walletBalance < totalCost) {
-      alert("Saldo insuficiente para estender a reserva.");
-      return;
-    }
-
+    if (buyer.walletBalance < totalCost) { alert("Saldo insuficiente."); return; }
     const newExpiresAt = new Date(res.expiresAt);
     newExpiresAt.setDate(newExpiresAt.getDate() + extraDays);
-    
     const updatedRes = { ...res, expiresAt: newExpiresAt.toISOString() };
     const updatedBuyer = { 
         ...buyer, 
         walletBalance: buyer.walletBalance - totalCost,
-        notifications: [{ id: `n-res-ext-${Date.now()}`, message: `Reserva estendida por ${extraDays} dias.`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications]
+        notifications: [{ id: `n-res-ext-${Date.now()}`, message: `Reserva estendida.`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications]
     };
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
     setUsers(prev => prev.map(u => u.id === buyer.id ? updatedBuyer : u));
@@ -385,63 +421,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!currentUser) return;
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
-    const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
-
-    if (catalogItem?.itemType === ItemType.LOTE && listing.lotConfig) {
-       const subListingIds = listing.lotConfig.listingIds;
-       setListings(prev => prev.map(l => {
-          if (subListingIds.includes(l.id)) {
-             return { ...l, status: 'CONCLUÍDO' as const, buyerId: currentUser.id };
-          }
-          return l;
-       }));
-    }
-
-    const activeLotsWithThisItem = listings.filter(l => 
-        l.status === 'DISPONÍVEL' && 
-        l.lotConfig && 
-        l.lotConfig.listingIds.includes(listing.id)
-    );
-
-    activeLotsWithThisItem.forEach(lotListing => {
-        const itemToRemove = listing;
-        const remainingIds = lotListing.lotConfig!.listingIds.filter(id => id !== itemToRemove.id);
-        
-        if (remainingIds.length === 0) {
-            setListings(prev => prev.map(l => l.id === lotListing.id ? { ...l, status: 'VENDIDO_FORA' as const } : l));
-        } else {
-            const ratio = itemToRemove.price / lotListing.lotConfig!.originalTotalPrice;
-            const priceReduction = lotListing.price * ratio;
-            const newLotPrice = Math.max(0, lotListing.price - priceReduction);
-            
-            const updatedLotListing = {
-                ...lotListing,
-                price: newLotPrice,
-                lotConfig: {
-                    ...lotListing.lotConfig!,
-                    listingIds: remainingIds
-                }
-            };
-            
-            setListings(prev => prev.map(l => l.id === lotListing.id ? updatedLotListing : l));
-
-            const seller = users.find(u => u.id === lotListing.sellerId);
-            if (seller) {
-                const upSeller = {
-                    ...seller,
-                    notifications: [{
-                        id: `n-lot-${Date.now()}`,
-                        message: `Item de Lote vendido separado! Lote "${lotListing.catalogItem.title}" atualizado para R$ ${newLotPrice.toFixed(2)}.`,
-                        read: false,
-                        createdAt: new Date().toISOString(),
-                        type: 'LOT_UPDATE' as const
-                    }, ...seller.notifications]
-                };
-                setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u));
-            }
-        }
-    });
-
     const updatedListing = { ...listing, status: 'AGUARDANDO_ENVIO' as const, buyerId: currentUser.id, selectedDeliveryMethod: method, finalShippingCost: method === 'SHIPPING' ? (listing.shippingCost || 0) : 0, finalTotalPrice: listing.price + (method === 'SHIPPING' ? (listing.shippingCost || 0) : 0) };
     setListings(prev => prev.map(l => l.id === listingId ? updatedListing : l));
     dbUpsert('listings', updatedListing);
@@ -540,13 +519,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   return (
     <StoreContext.Provider value={{
-      currentUser, users, catalog, listings, reviews, reservations, messages, isLoadingDB,
+      currentUser, users, catalog, listings, reviews, reservations, messages, wantRequests, wantResponses, isLoadingDB,
       login, register, verifyAccount, logout, addToCatalog, addListing, updateListing,
       buyListing, markAsShipped, confirmReceipt, markAsSoldOutside, addReview, toggleFavorite,
       markNotificationsAsRead, getEnrichedListings, getUserReviews, requestReservation,
       approveReservation, rejectReservation, cancelReservation, extendReservation,
       updateUserFinancials, depositFunds, deleteUser, deleteListing, updateUser, adminCreateUser, sendMessage,
-      toggleListingAvailability
+      toggleListingAvailability, addWantRequest, respondToWantRequest, deleteWantRequest
     }}>
       {children}
     </StoreContext.Provider>

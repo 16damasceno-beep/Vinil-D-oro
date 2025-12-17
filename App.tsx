@@ -17,6 +17,8 @@ import { ActivitySidebar } from './components/ActivitySidebar';
 import { Calculator } from './components/Calculator';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { WelcomeModal } from './components/WelcomeModal';
+import { LookingFor } from './pages/LookingFor';
+import { LookingForDetails } from './pages/LookingForDetails';
 
 const App: React.FC = () => {
   return (
@@ -25,11 +27,12 @@ const App: React.FC = () => {
         <div className="min-h-screen bg-vinyl-black text-gray-100 font-sans flex flex-col">
           <Navbar />
           <div className="flex flex-1 relative">
-            {/* Main Content Area */}
             <div className="flex-1 w-full lg:pr-80 transition-all duration-300">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/catalog" element={<Catalog />} />
+                <Route path="/procuro-por" element={<LookingFor />} />
+                <Route path="/procuro-por/:id" element={<LookingForDetails />} />
                 <Route path="/sell" element={<SellVinyl />} />
                 <Route path="/edit/:id" element={<EditListing />} />
                 <Route path="/listing/:id" element={<ListingDetails />} />
@@ -41,12 +44,8 @@ const App: React.FC = () => {
                 <Route path="/admin" element={<AdminDashboard />} />
               </Routes>
             </div>
-            
-            {/* Real-time Sidebar */}
             <ActivitySidebar />
           </div>
-          
-          {/* Utilities */}
           <Calculator />
           <WelcomeModal />
         </div>
