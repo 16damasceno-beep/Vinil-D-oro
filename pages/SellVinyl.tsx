@@ -40,7 +40,7 @@ export const SellVinyl: React.FC = () => {
   const [manualForm, setManualForm] = useState({
     artist: '', // Used as Brand for Equipment
     title: '',  // Used as Model for Equipment
-    genre: Genre.ROCK,
+    genre: Genre.OTHER,
     itemType: ItemType.LP, 
     year: '',
     description: '',
@@ -150,7 +150,7 @@ export const SellVinyl: React.FC = () => {
         }
       }
 
-      // Gemini AI (Album)
+      // Gemini AI (Album/LD)
       const aiResult = await getAlbumDetails(searchTerm);
       if (aiResult) {
          // Auto-populate manual form in case user wants to edit it
@@ -158,23 +158,23 @@ export const SellVinyl: React.FC = () => {
            id: `c-ai-${Date.now()}`,
            ...aiResult,
            genre: aiResult.genre as Genre, 
-           itemType: ItemType.LP, // Default for AI results
+           itemType: ItemType.LP, // Default for AI results, user can change
            coverUrl: `https://picsum.photos/seed/${searchTerm.replace(/\s/g,'')}/400/400`,
-           format: 'Vinil',
+           format: 'Vinil / Mídia',
            label: 'Desconhecido',
            tracks: aiResult.tracks
          };
          setSearchResults([newItem]);
          setSearchSource('AI');
       } else {
-         if(confirm("Álbum não encontrado. Deseja cadastrar manualmente?")) {
+         if(confirm("Título não encontrado. Deseja cadastrar manualmente?")) {
             setMode('MANUAL');
             setManualForm(prev => ({ ...prev, itemType: ItemType.LP }));
          }
       }
 
     } else {
-      // EQUIPMENT SEARCH LOGIC (Skip Discogs, go straight to Gemini Equipment)
+      // EQUIPMENT SEARCH LOGIC
       const aiResult = await getEquipmentDetails(searchTerm);
       
       if (aiResult) {
@@ -304,7 +304,7 @@ export const SellVinyl: React.FC = () => {
 
   const openGoogleImages = () => {
      // Construct a high quality search query
-     const query = manualForm.imageSearchQuery || `${manualForm.artist} ${manualForm.title} high quality cover`;
+     const query = manualForm.imageSearchQuery || `${manualForm.artist} ${manualForm.title} cover`;
      const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}&tbs=isz:l`; // tbs=isz:l filters for Large images
      window.open(url, '_blank');
   };
@@ -344,7 +344,7 @@ export const SellVinyl: React.FC = () => {
       {loadingDetails && (
         <div className="fixed inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center">
            <div className="w-16 h-16 border-4 border-vinyl-accent border-t-transparent rounded-full animate-spin mb-4"></div>
-           <p className="text-white font-bold">Importando faixas e detalhes do Discogs...</p>
+           <p className="text-white font-bold">Importando detalhes do Discogs...</p>
         </div>
       )}
 
@@ -404,7 +404,7 @@ export const SellVinyl: React.FC = () => {
                         onClick={() => { setSearchCategory('MEDIA'); setSearchResults([]); }}
                         className={`flex-1 py-2 px-3 rounded text-sm font-bold border transition ${searchCategory === 'MEDIA' ? 'bg-purple-900/50 text-purple-200 border-purple-500' : 'bg-gray-900 text-gray-400 border-gray-700'}`}
                       >
-                         💿 Mídia (Vinil, CD, K7)
+                         💿 Mídia (LD, LP, CD...)
                       </button>
                       <button 
                         onClick={() => { setSearchCategory('EQUIPMENT'); setSearchResults([]); }}
@@ -420,7 +420,7 @@ export const SellVinyl: React.FC = () => {
                     type="text" 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)}
-                    placeholder={searchCategory === 'MEDIA' ? "Digite Artista ou Álbum..." : "Digite Marca e Modelo do Equipamento..."}
+                    placeholder={searchCategory === 'MEDIA' ? "Digite Artista, Diretor ou Título..." : "Digite Marca e Modelo do Equipamento..."}
                     className="flex-1 bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none"
                   />
                   <button 
@@ -456,7 +456,7 @@ export const SellVinyl: React.FC = () => {
                              {item.itemType === ItemType.EQUIPMENT && item.voltage && ` • ${item.voltage}`}
                           </p>
                           <button className="mt-2 text-[10px] bg-gray-600 hover:bg-green-600 text-white px-2 py-1 rounded w-full transition">
-                            Revisar / Adicionar Faixas
+                            Revisar / Adicionar Detalhes
                           </button>
                         </div>
                       </div>
@@ -475,7 +475,7 @@ export const SellVinyl: React.FC = () => {
               <form onSubmit={handleManualCatalogSubmit} className="space-y-4 animate-[fadeIn_0.3s]">
                 <p className="text-gray-400 text-sm">
                    {searchResults.length > 0 
-                     ? "Revise os dados encontrados e adicione informações extras (como faixas) antes de confirmar." 
+                     ? "Revise os dados encontrados e adicione informações extras (como capítulos) antes de confirmar." 
                      : "Adicione os dados da Ficha Técnica manualmente."}
                 </p>
                 
@@ -500,7 +500,7 @@ export const SellVinyl: React.FC = () => {
                    {/* Left Side: Image Tools */}
                    <div className="w-full md:w-64 space-y-3">
                      <label className="block text-xs font-bold text-gray-500">
-                        {isEquipment ? 'Foto Principal do Equipamento' : 'Capa do Álbum'}
+                        {isEquipment ? 'Foto Principal do Equipamento' : 'Capa do Álbum/Filme'}
                      </label>
                      
                      {/* Image Preview - Large */}
@@ -562,11 +562,11 @@ export const SellVinyl: React.FC = () => {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col">
                             <label className="text-[10px] text-gray-500 font-bold mb-1 ml-1">
-                                {isEquipment ? 'Marca (Brand)' : 'Artista'}
+                                {isEquipment ? 'Marca (Brand)' : 'Artista / Diretor'}
                             </label>
                             <input 
                             type="text" 
-                            placeholder={isEquipment ? "Ex: Technics, Pioneer" : "Ex: Pink Floyd"}
+                            placeholder={isEquipment ? "Ex: Pioneer" : "Ex: George Lucas, Pink Floyd"}
                             required
                             className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
                             value={manualForm.artist}
@@ -575,11 +575,11 @@ export const SellVinyl: React.FC = () => {
                         </div>
                         <div className="flex flex-col">
                             <label className="text-[10px] text-gray-500 font-bold mb-1 ml-1">
-                                {isEquipment ? 'Modelo' : 'Álbum / Título'}
+                                {isEquipment ? 'Modelo' : 'Título'}
                             </label>
                             <input 
                             type="text" 
-                            placeholder={isEquipment ? "Ex: SL-1200 MK2" : "Ex: Dark Side of the Moon"}
+                            placeholder={isEquipment ? "Ex: CLD-D925" : "Ex: Star Wars: A New Hope"}
                             required
                             className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none"
                             value={manualForm.title}
@@ -632,7 +632,7 @@ export const SellVinyl: React.FC = () => {
                       
                       <div className="flex flex-col">
                            <label className="text-[10px] text-gray-500 font-bold mb-1 ml-1">
-                             {isEquipment ? 'Selo/Fabricante (Opcional)' : 'Gravadora / Selo'}
+                             {isEquipment ? 'Selo/Fabricante (Opcional)' : 'Estúdio / Gravadora'}
                            </label>
                             <input 
                               type="text" 
@@ -648,37 +648,37 @@ export const SellVinyl: React.FC = () => {
                             Descrição Técnica (Catálogo)
                         </label>
                         <textarea 
-                        placeholder={isEquipment ? "Especificações técnicas, potência, dimensões..." : "Descrição do álbum..."}
+                        placeholder={isEquipment ? "Especificações técnicas, potência, dimensões..." : "Sinopse ou descrição do álbum..."}
                         className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none text-sm h-24"
                         value={manualForm.description}
                         onChange={e => setManualForm({...manualForm, description: e.target.value})}
                         />
                       </div>
 
-                      {/* Tracks Section (Only for Media) */}
+                      {/* Tracks/Chapters Section (Only for Media) */}
                       {!isEquipment && (
                         <div className="flex flex-col border-t border-gray-800 pt-3">
                            <div className="flex justify-between items-end mb-2">
-                             <label className="text-[10px] text-gray-500 font-bold uppercase">Faixas (Tracklist)</label>
-                             <button type="button" onClick={handleAddTrack} className="text-xs text-vinyl-accent font-bold hover:underline">+ Adicionar Faixa</button>
+                             <label className="text-[10px] text-gray-500 font-bold uppercase">Capítulos / Faixas</label>
+                             <button type="button" onClick={handleAddTrack} className="text-xs text-vinyl-accent font-bold hover:underline">+ Adicionar Capítulo</button>
                            </div>
                            
                            {manualForm.tracks.length === 0 ? (
-                             <p className="text-xs text-gray-500 italic text-center p-2 border border-dashed border-gray-800 rounded">Nenhuma faixa encontrada. Adicione manualmente para valorizar seu anúncio.</p>
+                             <p className="text-xs text-gray-500 italic text-center p-2 border border-dashed border-gray-800 rounded">Nenhum capítulo encontrado. Adicione manualmente para valorizar seu anúncio.</p>
                            ) : (
                              <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
                                {manualForm.tracks.map((track, idx) => (
                                  <div key={idx} className="flex gap-2 items-center">
                                     <input 
                                       type="text" 
-                                      placeholder="Pos (A1, 1)" 
+                                      placeholder="Pos" 
                                       value={track.position} 
                                       onChange={e => handleTrackChange(idx, 'position', e.target.value)}
                                       className="w-16 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white uppercase text-center"
                                     />
                                     <input 
                                       type="text" 
-                                      placeholder="Nome da Música" 
+                                      placeholder="Nome do Capítulo" 
                                       value={track.title} 
                                       onChange={e => handleTrackChange(idx, 'title', e.target.value)}
                                       className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white"
@@ -719,7 +719,7 @@ export const SellVinyl: React.FC = () => {
                    )}
                 </div>
                 {selectedCatalogItem.tracks && selectedCatalogItem.tracks.length > 0 && (
-                   <p className="text-[10px] text-green-400 mt-1">✓ {selectedCatalogItem.tracks.length} faixas detectadas</p>
+                   <p className="text-[10px] text-green-400 mt-1">✓ {selectedCatalogItem.tracks.length} capítulos/faixas</p>
                 )}
                 <button type="button" onClick={() => setStep(1)} className="text-xs text-vinyl-accent hover:underline mt-2">← Escolher outro item</button>
               </div>

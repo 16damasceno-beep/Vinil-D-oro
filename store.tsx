@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType } from './types';
+import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType, ChatMessage } from './types';
 import { sendSaleNotification, sendReservationRequestNotification, sendReservationDecisionNotification, sendPasswordResetEmail, sendValidationEmail } from './services/notificationService';
 import { supabase, dbUpsert, dbDelete } from './services/supabaseClient';
 
@@ -11,7 +11,8 @@ interface StoreContextType {
   listings: Listing[];
   reviews: Review[];
   reservations: Reservation[];
-  isLoadingDB: boolean; // New loading state
+  messages: ChatMessage[];
+  isLoadingDB: boolean; 
   login: (email: string, password?: string) => void;
   register: (user: User) => string | null;
   verifyAccount: (email: string, token: string, newPassword: string) => boolean;
@@ -41,17 +42,18 @@ interface StoreContextType {
   deleteListing: (listingId: string) => void;
   updateUser: (updatedUser: User) => void; 
   adminCreateUser: (newUser: User) => void; 
+  sendMessage: (listingId: string, receiverId: string, text: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// --- DB INITIALIZATION HELPERS ---
 const DB_KEYS = {
   USERS: 'vd_db_users',
   CATALOG: 'vd_db_catalog',
   LISTINGS: 'vd_db_listings',
   REVIEWS: 'vd_db_reviews',
   RESERVATIONS: 'vd_db_reservations',
+  MESSAGES: 'vd_db_messages',
   CURRENT_USER_ID: 'vd_auth_uid'
 };
 
@@ -60,7 +62,7 @@ const loadFromDB = <T,>(key: string, fallback: T): T => {
     const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : fallback;
   } catch (e) {
-    console.error(`Erro ao carregar do banco de dados local (${key}):`, e);
+    console.error(`Erro ao carregar (${key}):`, e);
     return fallback;
   }
 };
@@ -69,253 +71,134 @@ const saveToDB = (key: string, data: any) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (e) {
-    console.error(`Erro ao salvar no banco de dados local (${key}):`, e);
+    console.error(`Erro ao salvar (${key}):`, e);
   }
 };
 
-// Initial Mock Data (Used only on first load if DB is empty)
-const INITIAL_CATALOG: CatalogItem[] = [
-  {
-    id: 'c1',
-    artist: 'Pink Floyd',
-    title: 'The Dark Side of the Moon',
-    genre: Genre.ROCK,
-    itemType: ItemType.LP,
-    year: 1973,
-    coverUrl: 'https://picsum.photos/id/20/400/400',
-    description: 'Uma obra-prima do rock progressivo focada em saúde mental, tempo e ganância.',
-    format: 'Vinil, LP, Album, Gatefold',
-    label: 'Harvest'
-  }
-];
-
-const INITIAL_USERS: User[] = [
-  {
-    id: 'admin1',
-    name: 'Administrador Master',
-    nickname: 'Admin',
-    email: 'admin@vinildoro.com',
-    password: 'Admin1234',
-    cpf: '000.000.000-00',
-    address: 'Sede Vinil Doro',
-    phone: '0800',
-    role: 'ADMIN',
-    walletBalance: 0,
-    sellerRating: 0,
-    sellerReviewCount: 0,
-    buyerRating: 0,
-    buyerReviewCount: 0,
-    favorites: [],
-    notifications: [],
-    savedPaymentMethods: [],
-    isVerified: true
-  }
-];
-
-const INITIAL_LISTINGS: Listing[] = [];
-const INITIAL_REVIEWS: Review[] = [];
-
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Initialize State from LocalStorage first (Instant Load)
-  const [users, setUsers] = useState<User[]>(() => loadFromDB(DB_KEYS.USERS, INITIAL_USERS));
-  const [catalog, setCatalog] = useState<CatalogItem[]>(() => loadFromDB(DB_KEYS.CATALOG, INITIAL_CATALOG));
-  const [listings, setListings] = useState<Listing[]>(() => loadFromDB(DB_KEYS.LISTINGS, INITIAL_LISTINGS));
-  const [reviews, setReviews] = useState<Review[]>(() => loadFromDB(DB_KEYS.REVIEWS, INITIAL_REVIEWS));
+  const [users, setUsers] = useState<User[]>(() => loadFromDB(DB_KEYS.USERS, []));
+  const [catalog, setCatalog] = useState<CatalogItem[]>(() => loadFromDB(DB_KEYS.CATALOG, []));
+  const [listings, setListings] = useState<Listing[]>(() => loadFromDB(DB_KEYS.LISTINGS, []));
+  const [reviews, setReviews] = useState<Review[]>(() => loadFromDB(DB_KEYS.REVIEWS, []));
   const [reservations, setReservations] = useState<Reservation[]>(() => loadFromDB(DB_KEYS.RESERVATIONS, []));
+  const [messages, setMessages] = useState<ChatMessage[]>(() => loadFromDB(DB_KEYS.MESSAGES, []));
   const [isLoadingDB, setIsLoadingDB] = useState(false);
   
-  // Auth state
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const savedId = localStorage.getItem(DB_KEYS.CURRENT_USER_ID);
     if(savedId) {
-      const allUsers = loadFromDB<User[]>(DB_KEYS.USERS, INITIAL_USERS);
+      const allUsers = loadFromDB<User[]>(DB_KEYS.USERS, []);
       return allUsers.find(u => u.id === savedId) || null;
     }
     return null;
   });
 
-  // --- SUPABASE SYNC (ON MOUNT) ---
   useEffect(() => {
     const syncWithCloud = async () => {
-      if (!supabase) return; // Skip if not configured
-      
+      if (!supabase) return;
       setIsLoadingDB(true);
       try {
-        // Fetch tables (Assuming JSONB structure: id, data)
         const { data: usersData } = await supabase.from('users').select('data');
         const { data: catalogData } = await supabase.from('catalog').select('data');
         const { data: listingsData } = await supabase.from('listings').select('data');
         const { data: reviewsData } = await supabase.from('reviews').select('data');
         const { data: reservationsData } = await supabase.from('reservations').select('data');
+        const { data: messagesData } = await supabase.from('messages').select('data');
 
-        if (usersData && usersData.length > 0) setUsers(usersData.map((row: any) => row.data));
-        if (catalogData && catalogData.length > 0) setCatalog(catalogData.map((row: any) => row.data));
-        if (listingsData && listingsData.length > 0) setListings(listingsData.map((row: any) => row.data));
-        if (reviewsData && reviewsData.length > 0) setReviews(reviewsData.map((row: any) => row.data));
-        if (reservationsData && reservationsData.length > 0) setReservations(reservationsData.map((row: any) => row.data));
-
-        console.log("Vinil D'oro: Sincronizado com Supabase com sucesso.");
+        if (usersData) setUsers(usersData.map((row: any) => row.data));
+        if (catalogData) setCatalog(catalogData.map((row: any) => row.data));
+        if (listingsData) setListings(listingsData.map((row: any) => row.data));
+        if (reviewsData) setReviews(reviewsData.map((row: any) => row.data));
+        if (reservationsData) setReservations(reservationsData.map((row: any) => row.data));
+        if (messagesData) setMessages(messagesData.map((row: any) => row.data));
       } catch (err) {
-        console.error("Erro na sincronização inicial:", err);
+        console.error("Erro sincronização:", err);
       } finally {
         setIsLoadingDB(false);
       }
     };
-
     syncWithCloud();
   }, []);
 
-  // --- PERSISTENCE EFFECTS (Save to LocalStorage) ---
   useEffect(() => saveToDB(DB_KEYS.USERS, users), [users]);
   useEffect(() => saveToDB(DB_KEYS.CATALOG, catalog), [catalog]);
   useEffect(() => saveToDB(DB_KEYS.LISTINGS, listings), [listings]);
   useEffect(() => saveToDB(DB_KEYS.REVIEWS, reviews), [reviews]);
   useEffect(() => saveToDB(DB_KEYS.RESERVATIONS, reservations), [reservations]);
+  useEffect(() => saveToDB(DB_KEYS.MESSAGES, messages), [messages]);
   
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(DB_KEYS.CURRENT_USER_ID, currentUser.id);
-      const updatedUser = users.find(u => u.id === currentUser.id);
-      if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(currentUser)) {
-        setCurrentUser(updatedUser);
-      }
     } else {
       localStorage.removeItem(DB_KEYS.CURRENT_USER_ID);
     }
-  }, [currentUser, users]);
+  }, [currentUser]);
 
-  // AUTOMATIC EXPIRATION CHECKER
-  useEffect(() => {
-    const checkExpirations = () => {
-      const now = new Date();
-      
-      setReservations(prevReservations => {
-        let hasChanges = false;
-        
-        const updatedReservations = prevReservations.map(res => {
-          if (res.status === 'APROVADA' && res.expiresAt) {
-             const expirationDate = new Date(res.expiresAt);
-             if (now > expirationDate) {
-               hasChanges = true;
-               const expired = { ...res, status: 'EXPIRADA' as const };
-               // Update DB for expiration
-               dbUpsert('reservations', expired);
-               return expired;
-             }
-          }
-          return res;
-        });
-
-        if (hasChanges) {
-          const expiredReservationIds = updatedReservations
-            .filter(r => r.status === 'EXPIRADA')
-            .map(r => r.listingId);
-            
-          setListings(prevListings => prevListings.map(l => {
-             if (l.status === 'RESERVADO' && expiredReservationIds.includes(l.id)) {
-               const freedListing = { ...l, status: 'DISPONÍVEL' as const };
-               dbUpsert('listings', freedListing); // Update DB
-               return freedListing;
-             }
-             return l;
-          }));
-        }
-
-        return hasChanges ? updatedReservations : prevReservations;
-      });
+  const sendMessage = (listingId: string, receiverId: string, text: string) => {
+    if (!currentUser) return;
+    const newMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      listingId,
+      senderId: currentUser.id,
+      receiverId,
+      text,
+      createdAt: new Date().toISOString(),
+      read: false
     };
 
-    const intervalId = setInterval(checkExpirations, 60000);
-    checkExpirations();
-    return () => clearInterval(intervalId);
-  }, []); 
+    setMessages(prev => [...prev, newMessage]);
+    dbUpsert('messages', newMessage);
 
+    // Notify Receiver
+    const receiver = users.find(u => u.id === receiverId);
+    if (receiver) {
+      const listing = listings.find(l => l.id === listingId);
+      const catalogItem = catalog.find(c => c.id === listing?.catalogItemId);
+      const updatedReceiver = {
+        ...receiver,
+        notifications: [
+          {
+            id: `n-chat-${Date.now()}`,
+            message: `Nova mensagem de ${currentUser.nickname} sobre "${catalogItem?.title || 'anúncio'}"`,
+            read: false,
+            createdAt: new Date().toISOString(),
+            type: 'CHAT_MESSAGE' as const,
+            metadata: { listingId }
+          },
+          ...(receiver.notifications || [])
+        ]
+      };
+      setUsers(prev => prev.map(u => u.id === receiverId ? updatedReceiver : u));
+      dbUpsert('users', updatedReceiver);
+    }
+  };
 
   const login = (email: string, password?: string) => {
     const user = users.find(u => u.email === email);
-    
-    if (!user) {
-      alert('Usuário não encontrado. Por favor, cadastre-se.');
-      return;
-    }
-
-    if (!user.isVerified && user.role !== 'ADMIN') {
-      alert('Sua conta ainda não foi ativada. Verifique o link de validação enviado.');
-      return;
-    }
-
-    if (user.password && user.password !== password) {
-      alert('Senha incorreta.');
-      return;
-    }
-
+    if (!user) return alert('Usuário não encontrado.');
+    if (!user.isVerified && user.role !== 'ADMIN') return alert('Conta não ativada.');
+    if (user.password && user.password !== password) return alert('Senha incorreta.');
     setCurrentUser(user);
   };
 
   const register = (newUser: User): string | null => {
     const exists = users.find(u => u.email === newUser.email || u.cpf === newUser.cpf);
-    if (exists) {
-      alert("Usuário com este email ou CPF/CNPJ já existe.");
-      return null;
-    }
-
-    const verificationToken = Math.random().toString(36).substring(2, 15);
-    const provisionalPassword = "PROVISIONAL-" + Date.now();
-
-    const userWithAuth: User = {
-      ...newUser,
-      password: provisionalPassword,
-      isVerified: false,
-      verificationToken
-    };
-
+    if (exists) { alert("Usuário já existe."); return null; }
+    const token = Math.random().toString(36).substring(2, 15);
+    const userWithAuth = { ...newUser, password: "PROVISIONAL-" + Date.now(), isVerified: false, verificationToken: token };
     setUsers([...users, userWithAuth]);
-    dbUpsert('users', userWithAuth); // SAVE TO DB
-    
-    sendValidationEmail(userWithAuth, verificationToken);
-    
-    return verificationToken;
-  };
-
-  const adminCreateUser = (newUser: User) => {
-    const exists = users.find(u => u.email === newUser.email || u.cpf === newUser.cpf);
-    if (exists) {
-      alert("Usuário com este email ou CPF/CNPJ já existe.");
-      return;
-    }
-    const verifiedUser: User = {
-      ...newUser,
-      isVerified: true
-    };
-    setUsers([...users, verifiedUser]);
-    dbUpsert('users', verifiedUser); // SAVE TO DB
-  };
-
-  const updateUser = (updatedUser: User) => {
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-    dbUpsert('users', updatedUser); // SAVE TO DB
+    dbUpsert('users', userWithAuth);
+    sendValidationEmail(userWithAuth, token);
+    return token;
   };
 
   const verifyAccount = (email: string, token: string, newPassword: string): boolean => {
-    const userIndex = users.findIndex(u => u.email === email);
-    
-    if (userIndex === -1) return false;
-    
-    const user = users[userIndex];
-    if (user.verificationToken !== token) return false;
-
-    const updatedUser = {
-      ...user,
-      password: newPassword,
-      isVerified: true,
-      verificationToken: undefined 
-    };
-
-    const newUsersList = [...users];
-    newUsersList[userIndex] = updatedUser;
-    setUsers(newUsersList);
-    dbUpsert('users', updatedUser); // SAVE TO DB
-    
+    const user = users.find(u => u.email === email);
+    if (!user || user.verificationToken !== token) return false;
+    const updatedUser = { ...user, password: newPassword, isVerified: true, verificationToken: undefined };
+    setUsers(prev => prev.map(u => u.email === email ? updatedUser : u));
+    dbUpsert('users', updatedUser);
     setCurrentUser(updatedUser);
     return true;
   };
@@ -324,545 +207,255 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const requestPasswordReset = (email: string): boolean => {
     const user = users.find(u => u.email === email);
-    if (user) {
-      sendPasswordResetEmail(user);
-      return true;
-    }
+    if (user) { sendPasswordResetEmail(user); return true; }
     return false;
   };
 
   const completePasswordReset = (email: string, newPassword: string) => {
-    // Find the user first to get full object for upsert
     const user = users.find(u => u.email === email);
     if (user) {
-        const updatedUser = { ...user, password: newPassword };
-        setUsers(prev => prev.map(u => u.email === email ? updatedUser : u));
-        dbUpsert('users', updatedUser); // SAVE TO DB
+      const updatedUser = { ...user, password: newPassword };
+      setUsers(prev => prev.map(u => u.email === email ? updatedUser : u));
+      dbUpsert('users', updatedUser);
     }
   };
 
   const addToCatalog = (item: CatalogItem) => {
     setCatalog([...catalog, item]);
-    dbUpsert('catalog', item); // SAVE TO DB
+    dbUpsert('catalog', item);
   };
 
   const addListing = (listing: Listing) => {
     setListings([...listings, listing]);
-    dbUpsert('listings', listing); // SAVE TO DB
+    dbUpsert('listings', listing);
   };
 
   const updateListing = (updatedListing: Listing) => {
     setListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
-    dbUpsert('listings', updatedListing); // SAVE TO DB
+    dbUpsert('listings', updatedListing);
   };
 
   const updateUserFinancials = (bankInfo?: BankInfo, paymentMethod?: PaymentMethod) => {
     if (!currentUser) return;
-
-    // Need to find user in current state to ensure we have latest data
     const userToUpdate = users.find(u => u.id === currentUser.id);
     if (!userToUpdate) return;
-
     const updatedUser = { ...userToUpdate };
     if (bankInfo) updatedUser.bankInfo = bankInfo;
     if (paymentMethod) updatedUser.savedPaymentMethods = [...(userToUpdate.savedPaymentMethods || []), paymentMethod];
-
-    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
-    dbUpsert('users', updatedUser); // SAVE TO DB
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
+    dbUpsert('users', updatedUser);
   };
   
   const depositFunds = (amount: number) => {
     if (!currentUser) return;
-    
     const userToUpdate = users.find(u => u.id === currentUser.id);
     if(!userToUpdate) return;
-
     const updatedUser = {
         ...userToUpdate,
         walletBalance: userToUpdate.walletBalance + amount,
-        notifications: [
-            {
-                id: `n-dep-${Date.now()}`,
-                message: `Depósito de R$ ${amount.toFixed(2)} realizado com sucesso.`,
-                read: false,
-                createdAt: new Date().toISOString()
-            },
-            ...userToUpdate.notifications
-        ]
+        notifications: [{ id: `n-dep-${Date.now()}`, message: `Depósito de R$ ${amount.toFixed(2)} realizado.`, read: false, createdAt: new Date().toISOString() }, ...userToUpdate.notifications]
     };
-
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
-    dbUpsert('users', updatedUser); // SAVE TO DB
-    
-    alert(`Depósito de R$ ${amount.toFixed(2)} realizado com sucesso! Saldo atualizado.`);
+    dbUpsert('users', updatedUser);
   };
-
-  // --- RESERVATION LOGIC ---
 
   const requestReservation = (listingId: string) => {
     if (!currentUser) return;
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
-
     const catalogItem = catalog.find(c => c.id === listing.catalogItemId)!;
     const seller = users.find(u => u.id === listing.sellerId)!;
-
-    const newReservation: Reservation = {
-      id: `res-${Date.now()}`,
-      listingId,
-      buyerId: currentUser.id,
-      sellerId: listing.sellerId,
-      status: 'PENDENTE',
-      days: 5,
-      createdAt: new Date().toISOString()
-    };
-
-    setReservations(prev => [...prev, newReservation]);
-    dbUpsert('reservations', newReservation); // SAVE TO DB
-
-    // Notify Seller
+    const newRes = { id: `res-${Date.now()}`, listingId, buyerId: currentUser.id, sellerId: listing.sellerId, status: 'PENDENTE' as const, days: 5, createdAt: new Date().toISOString() };
+    setReservations(prev => [...prev, newRes]);
+    dbUpsert('reservations', newRes);
     const sellerUpdate = {
         ...seller,
-        notifications: [
-            {
-              id: `n-res-${Date.now()}`,
-              message: `Nova solicitação de reserva de ${currentUser.nickname} para "${catalogItem.title}".`,
-              read: false,
-              createdAt: new Date().toISOString(),
-              type: 'RESERVATION_REQUEST' as const,
-              metadata: { reservationId: newReservation.id, listingId: listing.id }
-            },
-            ...seller.notifications
-        ]
+        notifications: [{ id: `n-res-${Date.now()}`, message: `Reserva para "${catalogItem.title}".`, read: false, createdAt: new Date().toISOString(), type: 'RESERVATION_REQUEST' as const, metadata: { reservationId: newRes.id, listingId: listing.id } }, ...seller.notifications]
     };
-    
-    setUsers(prevUsers => prevUsers.map(u => u.id === listing.sellerId ? sellerUpdate : u));
-    dbUpsert('users', sellerUpdate); // SAVE TO DB
-
-    sendReservationRequestNotification(seller, currentUser, listing, catalogItem, newReservation.id);
-    alert("Solicitação de reserva enviada! O vendedor foi notificado.");
+    setUsers(prev => prev.map(u => u.id === listing.sellerId ? sellerUpdate : u));
+    dbUpsert('users', sellerUpdate);
+    sendReservationRequestNotification(seller, currentUser, listing, catalogItem, newRes.id);
   };
 
   const approveReservation = (reservationId: string) => {
-    const reservation = reservations.find(r => r.id === reservationId);
-    if (!reservation || reservation.status !== 'PENDENTE') return;
-
-    const listing = listings.find(l => l.id === reservation.listingId);
-    if (!listing) return;
-    const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
-    if (!catalogItem) return;
-
-    const buyer = users.find(u => u.id === reservation.buyerId);
-    const seller = users.find(u => u.id === reservation.sellerId);
-    if (!buyer || !seller) return;
-
-    // Financial Rules
-    let totalCost = 0;
-    let sellerShare = 0;
-    if (catalogItem.itemType === ItemType.EQUIPMENT) {
-      totalCost = listing.price * 0.10;
-      sellerShare = listing.price * 0.07;
-    } else {
-      totalCost = 10.00;
-      sellerShare = 7.00;
-    }
-
-    // 1. Update Reservation
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 5); 
-    const updatedReservation = { ...reservation, status: 'APROVADA' as const, expiresAt: expiresAt.toISOString() };
+    const res = reservations.find(r => r.id === reservationId);
+    if (!res || res.status !== 'PENDENTE') return;
+    const listing = listings.find(l => l.id === res.listingId);
+    const catalogItem = catalog.find(c => c.id === listing?.catalogItemId);
+    const buyer = users.find(u => u.id === res.buyerId);
+    const seller = users.find(u => u.id === res.sellerId);
+    if (!listing || !catalogItem || !buyer || !seller) return;
     
-    setReservations(prev => prev.map(r => r.id === reservationId ? updatedReservation : r));
-    dbUpsert('reservations', updatedReservation); // SAVE TO DB
+    // NOVO VALOR FIXO EQUIPAMENTOS: R$ 40,00. MIDIA: R$ 10,00.
+    let cost = catalogItem.itemType === ItemType.EQUIPMENT ? 40.00 : 10.00;
+    // DIVISÃO MANTIDA (70% para vendedor): R$ 28,00 para Equipamentos.
+    let share = catalogItem.itemType === ItemType.EQUIPMENT ? 28.00 : 7.00;
 
-    // 2. Update Listing
+    const expiresAt = new Date(); expiresAt.setDate(expiresAt.getDate() + 5);
+    const updatedRes = { ...res, status: 'APROVADA' as const, expiresAt: expiresAt.toISOString() };
     const updatedListing = { ...listing, status: 'RESERVADO' as const };
-    setListings(prev => prev.map(l => l.id === reservation.listingId ? updatedListing : l));
-    dbUpsert('listings', updatedListing); // SAVE TO DB
-
-    // 3. Process Users (Seller)
-    const updatedSeller = { 
-        ...seller, 
-        walletBalance: seller.walletBalance + sellerShare,
-        notifications: [
-            { id: `n-res-app-${Date.now()}`, message: `Reserva aprovada! Você recebeu R$ ${sellerShare.toFixed(2)}.`, read: false, createdAt: new Date().toISOString() },
-            ...seller.notifications.map(n => n.type === 'RESERVATION_REQUEST' && n.metadata?.reservationId === reservationId ? { ...n, read: true, message: n.message + ' (Aceita)' } : n)
-        ]
-    };
-    dbUpsert('users', updatedSeller); // SAVE TO DB
-
-    // 3. Process Users (Buyer)
-    const updatedBuyer = {
-        ...buyer,
-        walletBalance: buyer.walletBalance - totalCost,
-        notifications: [
-            { id: `n-res-buyer-${Date.now()}`, message: `Sua reserva foi aprovada! R$ ${totalCost.toFixed(2)} debitados.`, read: false, createdAt: new Date().toISOString() },
-            ...buyer.notifications
-        ]
-    };
-    dbUpsert('users', updatedBuyer); // SAVE TO DB
-
-    // Update Local State for users
-    setUsers(prev => prev.map(u => {
-        if(u.id === seller.id) return updatedSeller;
-        if(u.id === buyer.id) return updatedBuyer;
-        return u;
-    }));
-
+    const updatedSeller = { ...seller, walletBalance: seller.walletBalance + share, notifications: [{ id: `n-res-app-${Date.now()}`, message: `Reserva aceita! R$ ${share.toFixed(2)} recebidos.`, read: false, createdAt: new Date().toISOString() }, ...seller.notifications] };
+    const updatedBuyer = { ...buyer, walletBalance: buyer.walletBalance - cost, notifications: [{ id: `n-res-buy-${Date.now()}`, message: `Sua reserva foi aprovada!`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications] };
+    setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
+    setListings(prev => prev.map(l => l.id === res.listingId ? updatedListing : l));
+    setUsers(prev => prev.map(u => u.id === seller.id ? updatedSeller : u.id === buyer.id ? updatedBuyer : u));
+    dbUpsert('reservations', updatedRes); dbUpsert('listings', updatedListing); dbUpsert('users', updatedSeller); dbUpsert('users', updatedBuyer);
     sendReservationDecisionNotification(buyer, seller, catalogItem, true);
-    alert(`Reserva aprovada!`);
   };
 
   const rejectReservation = (reservationId: string) => {
-    const reservation = reservations.find(r => r.id === reservationId);
-    if (!reservation) return;
-
-    const updatedReservation = { ...reservation, status: 'RECUSADA' as const };
-    setReservations(prev => prev.map(r => r.id === reservationId ? updatedReservation : r));
-    dbUpsert('reservations', updatedReservation); // SAVE TO DB
-
-    const seller = users.find(u => u.id === reservation.sellerId);
-    if (seller) {
-        const updatedSeller = {
-            ...seller,
-            notifications: seller.notifications.map(n => n.type === 'RESERVATION_REQUEST' && n.metadata?.reservationId === reservationId ? { ...n, read: true, message: n.message + ' (Recusada)' } : n)
-        };
-        setUsers(prev => prev.map(u => u.id === seller.id ? updatedSeller : u));
-        dbUpsert('users', updatedSeller); // SAVE TO DB
-    }
-    
-    // Notifications...
-    alert("Solicitação de reserva recusada.");
+    const res = reservations.find(r => r.id === reservationId);
+    if (!res) return;
+    const updatedRes = { ...res, status: 'RECUSADA' as const };
+    setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
+    dbUpsert('reservations', updatedRes);
   };
 
   const cancelReservation = (reservationId: string) => {
-    const reservation = reservations.find(r => r.id === reservationId);
-    if (!reservation) return;
-
-    if (confirm("Cancelar esta reserva?")) {
-       const updatedReservation = { ...reservation, status: 'CANCELADA' as const };
-       setReservations(prev => prev.map(r => r.id === reservationId ? updatedReservation : r));
-       dbUpsert('reservations', updatedReservation); // SAVE TO DB
-
-       const listing = listings.find(l => l.id === reservation.listingId);
-       if(listing) {
-           const updatedListing = { ...listing, status: 'DISPONÍVEL' as const };
-           setListings(prev => prev.map(l => l.id === listing.id ? updatedListing : l));
-           dbUpsert('listings', updatedListing); // SAVE TO DB
-       }
-       
-       const buyer = users.find(u => u.id === reservation.buyerId);
-       if(buyer) {
-           const updatedBuyer = {
-               ...buyer,
-               notifications: [
-                   { id: `n-res-canc-${Date.now()}`, message: `Reserva cancelada pelo vendedor.`, read: false, createdAt: new Date().toISOString() },
-                   ...buyer.notifications
-               ]
-           };
-           setUsers(prev => prev.map(u => u.id === buyer.id ? updatedBuyer : u));
-           dbUpsert('users', updatedBuyer); // SAVE TO DB
-       }
-
-       alert("Reserva cancelada com sucesso.");
-    }
+    const res = reservations.find(r => r.id === reservationId);
+    if (!res) return;
+    const updatedRes = { ...res, status: 'CANCELADA' as const };
+    const listing = listings.find(l => l.id === res.listingId);
+    const updatedListing = listing ? { ...listing, status: 'DISPONÍVEL' as const } : null;
+    setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
+    if (updatedListing) setListings(prev => prev.map(l => l.id === listing!.id ? updatedListing : l));
+    dbUpsert('reservations', updatedRes); if (updatedListing) dbUpsert('listings', updatedListing);
   };
 
   const extendReservation = (reservationId: string, extraDays: number) => {
-    const reservation = reservations.find(r => r.id === reservationId);
-    if (!reservation || !reservation.expiresAt) return;
+    const res = reservations.find(r => r.id === reservationId);
+    if (!res || !res.expiresAt) return;
+    const listing = listings.find(l => l.id === res.listingId);
+    const catalogItem = catalog.find(c => c.id === listing?.catalogItemId);
+    if (!listing || !catalogItem) return;
 
-    const listing = listings.find(l => l.id === reservation.listingId);
-    if (!listing) return;
-    const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
-    if (!catalogItem) return;
+    // VALORES EXTENSÃO: EQUIPAMENTO R$ 5,00/dia. MIDIA R$ 1,50/dia.
+    let cost = (catalogItem.itemType === ItemType.EQUIPMENT ? 5.00 : 1.50) * extraDays;
+    // DIVISÃO MANTIDA (60% para vendedor): R$ 3,00 para Equipamentos.
+    let share = (catalogItem.itemType === ItemType.EQUIPMENT ? 3.00 : 1.00) * extraDays;
 
-    // Financials
-    let costPerDay = catalogItem.itemType === ItemType.EQUIPMENT ? 5.00 : 1.50;
-    let sellerSharePerDay = catalogItem.itemType === ItemType.EQUIPMENT ? 3.00 : 1.00;
-    const totalCost = costPerDay * extraDays;
-    const sellerShare = sellerSharePerDay * extraDays;
-
-    const newExpiresAt = new Date(reservation.expiresAt);
-    newExpiresAt.setDate(newExpiresAt.getDate() + extraDays);
-
-    const updatedReservation = { 
-        ...reservation, 
-        days: reservation.days + extraDays,
-        expiresAt: newExpiresAt.toISOString()
-    };
-    setReservations(prev => prev.map(r => r.id === reservationId ? updatedReservation : r));
-    dbUpsert('reservations', updatedReservation); // SAVE TO DB
-
-    const seller = users.find(u => u.id === reservation.sellerId);
-    const buyer = users.find(u => u.id === reservation.buyerId);
-
+    const newExpires = new Date(res.expiresAt); newExpires.setDate(newExpires.getDate() + extraDays);
+    const updatedRes = { ...res, days: res.days + extraDays, expiresAt: newExpires.toISOString() };
+    const seller = users.find(u => u.id === res.sellerId);
+    const buyer = users.find(u => u.id === res.buyerId);
     if (seller && buyer) {
-        const updatedSeller = { ...seller, walletBalance: seller.walletBalance + sellerShare };
-        const updatedBuyer = { ...buyer, walletBalance: buyer.walletBalance - totalCost };
-        
-        setUsers(prev => prev.map(u => {
-            if(u.id === seller.id) return updatedSeller;
-            if(u.id === buyer.id) return updatedBuyer;
-            return u;
-        }));
-        dbUpsert('users', updatedSeller);
-        dbUpsert('users', updatedBuyer);
+        const upSeller = { ...seller, walletBalance: seller.walletBalance + share };
+        const upBuyer = { ...buyer, walletBalance: buyer.walletBalance - cost };
+        setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u.id === buyer.id ? upBuyer : u));
+        dbUpsert('users', upSeller); dbUpsert('users', upBuyer);
     }
-
-    alert(`Reserva estendida!`);
+    setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
+    dbUpsert('reservations', updatedRes);
   };
 
-  // 1. Buyer purchases
   const buyListing = (listingId: string, method: 'PICKUP' | 'SHIPPING') => {
     if (!currentUser) return;
-
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
-
-    const shippingCost = method === 'SHIPPING' ? (listing.shippingCost || 0) : 0;
-    const total = listing.price + shippingCost;
-    
-    if (listing.status === 'RESERVADO') {
-       const activeRes = reservations.find(r => r.listingId === listingId && r.status === 'APROVADA');
-       if (activeRes) {
-         const finishedRes = { ...activeRes, status: 'FINALIZADA' as const };
-         setReservations(prev => prev.map(r => r.id === activeRes.id ? finishedRes : r));
-         dbUpsert('reservations', finishedRes);
-       }
-    }
-
-    const updatedListing = { 
-        ...listing, 
-        status: 'AGUARDANDO_ENVIO' as const, 
-        buyerId: currentUser.id,
-        selectedDeliveryMethod: method,
-        finalShippingCost: shippingCost,
-        finalTotalPrice: total
-    };
-
+    const updatedListing = { ...listing, status: 'AGUARDANDO_ENVIO' as const, buyerId: currentUser.id, selectedDeliveryMethod: method, finalShippingCost: method === 'SHIPPING' ? (listing.shippingCost || 0) : 0, finalTotalPrice: listing.price + (method === 'SHIPPING' ? (listing.shippingCost || 0) : 0) };
     setListings(prev => prev.map(l => l.id === listingId ? updatedListing : l));
-    dbUpsert('listings', updatedListing); // SAVE TO DB
-
-    // Update Buyer (Favorites & Notifications)
-    const updatedBuyer = {
-        ...currentUser,
-        favorites: currentUser.favorites?.filter(id => id !== listingId) || []
-    };
-    
-    // Update Seller
+    dbUpsert('listings', updatedListing);
     const seller = users.find(u => u.id === listing.sellerId);
     if(seller) {
-        const updatedSeller = {
-            ...seller,
-            notifications: [
-                {
-                    id: `n-sale-${Date.now()}`,
-                    message: `Venda realizada! Aguardando envio.`,
-                    read: false,
-                    createdAt: new Date().toISOString(),
-                    type: 'SALE_ALERT' as const
-                },
-                ...seller.notifications
-            ]
-        };
-        setUsers(prev => prev.map(u => {
-            if(u.id === currentUser.id) return updatedBuyer;
-            if(u.id === seller.id) return updatedSeller;
-            return u;
-        }));
-        dbUpsert('users', updatedBuyer);
-        dbUpsert('users', updatedSeller);
+        const upSeller = { ...seller, notifications: [{ id: `n-sale-${Date.now()}`, message: `Venda realizada!`, read: false, createdAt: new Date().toISOString(), type: 'SALE_ALERT' as const }, ...seller.notifications] };
+        setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u));
+        dbUpsert('users', upSeller);
     }
-
-    alert(`Compra realizada com sucesso!`);
   };
 
-  const markAsShipped = (listingId: string, trackingCode: string) => {
-    const listing = listings.find(l => l.id === listingId);
-    if (!listing) return;
-    
-    const updatedListing = { ...listing, status: 'ENVIADO' as const, trackingCode };
-    setListings(prev => prev.map(l => l.id === listingId ? updatedListing : l));
-    dbUpsert('listings', updatedListing); // SAVE TO DB
+  const markAsShipped = (id: string, trackingCode: string) => {
+    const l = listings.find(listing => listing.id === id);
+    if (!l) return;
+    const updated = { ...l, status: 'ENVIADO' as const, trackingCode };
+    setListings(prev => prev.map(listing => listing.id === id ? updated : listing));
+    dbUpsert('listings', updated);
   };
 
-  const confirmReceipt = (listingId: string) => {
-    const listing = listings.find(l => l.id === listingId);
-    if (!listing) return;
-
-    const fee = listing.price * 0.07; 
-    const sellerEarnings = (listing.price - fee) + (listing.finalShippingCost || 0);
-
-    const updatedListing = { ...listing, status: 'CONCLUÍDO' as const };
-    setListings(prev => prev.map(l => l.id === listingId ? updatedListing : l));
-    dbUpsert('listings', updatedListing); // SAVE TO DB
-
-    const seller = users.find(u => u.id === listing.sellerId);
+  const confirmReceipt = (id: string) => {
+    const l = listings.find(listing => listing.id === id);
+    if (!l) return;
+    const fee = l.price * 0.07;
+    const sellerEarnings = (l.price - fee) + (l.finalShippingCost || 0);
+    const updated = { ...l, status: 'CONCLUÍDO' as const };
+    setListings(prev => prev.map(listing => listing.id === id ? updated : listing));
+    dbUpsert('listings', updated);
+    const seller = users.find(u => u.id === l.sellerId);
     if(seller) {
-        const updatedSeller = { ...seller, walletBalance: seller.walletBalance + sellerEarnings };
-        setUsers(currentUsers => currentUsers.map(u => u.id === seller.id ? updatedSeller : u));
-        dbUpsert('users', updatedSeller); // SAVE TO DB
+        const upSeller = { ...seller, walletBalance: seller.walletBalance + sellerEarnings };
+        setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u));
+        dbUpsert('users', upSeller);
     }
-
-    alert(`Recebimento confirmado!`);
   };
 
-  const markAsSoldOutside = (listingId: string) => {
-    const listing = listings.find(l => l.id === listingId);
-    if(!listing) return;
-    const updatedListing = { ...listing, status: 'VENDIDO_FORA' as const };
-    setListings(prev => prev.map(l => l.id === listingId ? updatedListing : l));
-    dbUpsert('listings', updatedListing); // SAVE TO DB
-    alert("Item marcado como vendido fora do site.");
+  const markAsSoldOutside = (id: string) => {
+    const l = listings.find(listing => listing.id === id);
+    if(!l) return;
+    const updated = { ...l, status: 'VENDIDO_FORA' as const };
+    setListings(prev => prev.map(listing => listing.id === id ? updated : listing));
+    dbUpsert('listings', updated);
   };
 
-  const addReview = (reviewData: Omit<Review, 'id' | 'createdAt'>) => {
-    const newReview: Review = {
-      ...reviewData,
-      id: `r-${Date.now()}`,
-      createdAt: new Date().toISOString()
-    };
-
-    setReviews(prev => [...prev, newReview]);
-    dbUpsert('reviews', newReview); // SAVE TO DB
-
-    // Update Listing flags
-    const listing = listings.find(l => l.id === reviewData.listingId);
-    if(listing) {
-        let updatedListing = { ...listing };
-        if (reviewData.type === 'AVALIACAO_VENDEDOR') updatedListing.buyerReviewedSeller = true;
-        else updatedListing.sellerReviewedBuyer = true;
-        
-        setListings(prev => prev.map(l => l.id === listing.id ? updatedListing : l));
-        dbUpsert('listings', updatedListing);
-    }
-
-    // Recalculate User Average
-    const targetUser = users.find(u => u.id === reviewData.toUserId);
-    if(targetUser) {
-        let updatedUser = { ...targetUser };
-        if (reviewData.type === 'AVALIACAO_VENDEDOR') {
-          const newCount = targetUser.sellerReviewCount + 1;
-          const newRating = ((targetUser.sellerRating * targetUser.sellerReviewCount) + reviewData.rating) / newCount;
-          updatedUser.sellerRating = newRating;
-          updatedUser.sellerReviewCount = newCount;
+  const addReview = (data: Omit<Review, 'id' | 'createdAt'>) => {
+    const newRev = { ...data, id: `r-${Date.now()}`, createdAt: new Date().toISOString() };
+    setReviews(prev => [...prev, newRev]);
+    dbUpsert('reviews', newRev);
+    const target = users.find(u => u.id === data.toUserId);
+    if(target) {
+        let up = { ...target };
+        if (data.type === 'AVALIACAO_VENDEDOR') {
+          const count = target.sellerReviewCount + 1;
+          up.sellerRating = ((target.sellerRating * target.sellerReviewCount) + data.rating) / count;
+          up.sellerReviewCount = count;
         } else {
-          const newCount = targetUser.buyerReviewCount + 1;
-          const newRating = ((targetUser.buyerRating * targetUser.buyerReviewCount) + reviewData.rating) / newCount;
-          updatedUser.buyerRating = newRating;
-          updatedUser.buyerReviewCount = newCount;
+          const count = target.buyerReviewCount + 1;
+          up.buyerRating = ((target.buyerRating * target.buyerReviewCount) + data.rating) / count;
+          up.buyerReviewCount = count;
         }
-        setUsers(prev => prev.map(u => u.id === targetUser.id ? updatedUser : u));
-        dbUpsert('users', updatedUser);
+        setUsers(prev => prev.map(u => u.id === target.id ? up : u));
+        dbUpsert('users', up);
     }
   };
 
-  const toggleFavorite = (listingId: string) => {
+  const toggleFavorite = (id: string) => {
     if (!currentUser) return;
-    const userToUpdate = users.find(u => u.id === currentUser.id);
-    if (!userToUpdate) return;
-
-    const currentFavs = userToUpdate.favorites || [];
-    const isFavorited = currentFavs.includes(listingId);
-    const updatedUser = {
-        ...userToUpdate,
-        favorites: isFavorited ? currentFavs.filter(id => id !== listingId) : [...currentFavs, listingId]
-    };
-
-    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
-    dbUpsert('users', updatedUser); // SAVE TO DB
+    const upFavs = currentUser.favorites.includes(id) ? currentUser.favorites.filter(x => x !== id) : [...currentUser.favorites, id];
+    const upUser = { ...currentUser, favorites: upFavs };
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? upUser : u));
+    dbUpsert('users', upUser);
   };
 
   const markNotificationsAsRead = () => {
     if (!currentUser) return;
-    const userToUpdate = users.find(u => u.id === currentUser.id);
-    if (!userToUpdate) return;
-
-    const updatedUser = {
-        ...userToUpdate,
-        notifications: (userToUpdate.notifications || []).map(n => ({ ...n, read: true }))
-    };
-    setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
-    dbUpsert('users', updatedUser); // SAVE TO DB
+    const up = { ...currentUser, notifications: currentUser.notifications.map(n => ({ ...n, read: true })) };
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? up : u));
+    dbUpsert('users', up);
   };
 
-  const getEnrichedListings = (): EnrichedListing[] => {
-    return listings.map((listing): EnrichedListing | null => {
-      const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
-      const seller = users.find(u => u.id === listing.sellerId);
-      const buyer = listing.buyerId ? users.find(u => u.id === listing.buyerId) : undefined;
-      const activeReservation = reservations.find(r => r.listingId === listing.id && r.status === 'APROVADA');
-      
-      if (!catalogItem || !seller) return null;
-
-      return {
-        ...listing,
-        catalogItem,
-        sellerName: seller.nickname || seller.name,
-        sellerDocument: seller.cpf,
-        buyerName: buyer ? (buyer.nickname || buyer.name) : undefined,
-        buyerDocument: buyer?.cpf,
-        activeReservation
-      };
-    }).filter((l): l is EnrichedListing => l !== null);
+  const getEnrichedListings = () => {
+    return listings.map(l => {
+      const cat = catalog.find(c => c.id === l.catalogItemId);
+      const sel = users.find(u => u.id === l.sellerId);
+      const buy = l.buyerId ? users.find(u => u.id === l.buyerId) : undefined;
+      const res = reservations.find(r => r.listingId === l.id && r.status === 'APROVADA');
+      if (!cat || !sel) return null;
+      return { ...l, catalogItem: cat, sellerName: sel.nickname, sellerDocument: sel.cpf, buyerName: buy?.nickname, buyerDocument: buy?.cpf, activeReservation: res };
+    }).filter(l => l !== null) as EnrichedListing[];
   };
 
-  const getUserReviews = (userId: string) => {
-    return reviews.filter(r => r.toUserId === userId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  };
-
-  const deleteUser = (userId: string) => {
-    setUsers(prev => prev.filter(u => u.id !== userId));
-    setListings(prev => prev.filter(l => l.sellerId !== userId));
-    dbDelete('users', userId); // DELETE FROM DB
-    // Ideally cascade delete listings from DB too, but for simplicity:
-    // We would fetch all listings by this user and delete them.
-  };
-
-  const deleteListing = (listingId: string) => {
-    setListings(prev => prev.filter(l => l.id !== listingId));
-    dbDelete('listings', listingId); // DELETE FROM DB
-  };
+  const getUserReviews = (id: string) => reviews.filter(r => r.toUserId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const deleteUser = (id: string) => { setUsers(prev => prev.filter(u => u.id !== id)); dbDelete('users', id); };
+  const deleteListing = (id: string) => { setListings(prev => prev.filter(l => l.id !== id)); dbDelete('listings', id); };
+  const updateUser = (up: User) => { setUsers(prev => prev.map(u => u.id === up.id ? up : u)); dbUpsert('users', up); };
+  const adminCreateUser = (newUser: User) => { setUsers([...users, { ...newUser, isVerified: true }]); dbUpsert('users', { ...newUser, isVerified: true }); };
 
   return (
     <StoreContext.Provider value={{
-      currentUser,
-      users,
-      catalog,
-      listings,
-      reviews,
-      reservations,
-      isLoadingDB,
-      login,
-      register,
-      verifyAccount,
-      logout,
-      addToCatalog,
-      addListing,
-      updateListing,
-      buyListing,
-      markAsShipped,
-      confirmReceipt,
-      markAsSoldOutside,
-      addReview,
-      toggleFavorite,
-      markNotificationsAsRead,
-      getEnrichedListings,
-      getUserReviews,
-      requestReservation,
-      approveReservation,
-      rejectReservation,
-      cancelReservation,
-      extendReservation,
-      updateUserFinancials,
-      depositFunds,
-      deleteUser,
-      deleteListing,
-      updateUser,
-      adminCreateUser,
-      requestPasswordReset,
-      completePasswordReset
+      currentUser, users, catalog, listings, reviews, reservations, messages, isLoadingDB,
+      login, register, verifyAccount, logout, addToCatalog, addListing, updateListing,
+      buyListing, markAsShipped, confirmReceipt, markAsSoldOutside, addReview, toggleFavorite,
+      markNotificationsAsRead, getEnrichedListings, getUserReviews, requestReservation,
+      approveReservation, rejectReservation, cancelReservation, extendReservation,
+      updateUserFinancials, depositFunds, deleteUser, deleteListing, updateUser, adminCreateUser, sendMessage
     }}>
       {children}
     </StoreContext.Provider>
@@ -871,8 +464,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
 export const useStore = () => {
   const context = useContext(StoreContext);
-  if (context === undefined) {
-    throw new Error('useStore must be used within a StoreProvider');
-  }
+  if (!context) throw new Error('useStore error');
   return context;
 };

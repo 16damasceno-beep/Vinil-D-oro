@@ -25,7 +25,7 @@ export const Catalog: React.FC = () => {
     // Type Check
     const typeCheck = selectedType === 'Todos' 
        ? true 
-       : (item.itemType === selectedType || (!item.itemType && selectedType === ItemType.LP));
+       : (item.itemType === selectedType || (!item.itemType && selectedType === ItemType.LD));
 
     return matchesSearch && matchesGenre && typeCheck;
   });
@@ -40,7 +40,7 @@ export const Catalog: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <input
             type="text"
-            placeholder="Buscar Artista ou Álbum..."
+            placeholder="Buscar Artista, Diretor ou Título..."
             className="flex-1 bg-gray-800 text-white rounded-md px-4 py-2 border border-gray-700 focus:outline-none focus:border-vinyl-accent"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -91,7 +91,7 @@ export const Catalog: React.FC = () => {
                 <div className="flex flex-wrap gap-1 mt-2 mb-3">
                    <span className="text-[10px] bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">{listing.catalogItem.genre}</span>
                    <span className="text-[10px] bg-vinyl-accent/20 text-vinyl-accent border border-vinyl-accent/50 px-1.5 py-0.5 rounded">
-                     {listing.catalogItem.itemType || 'Vinil'}
+                     {listing.catalogItem.itemType || 'Laser Disc'}
                    </span>
                 </div>
 

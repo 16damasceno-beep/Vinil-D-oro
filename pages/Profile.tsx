@@ -5,1275 +5,191 @@ import { useNavigate, Link } from 'react-router-dom';
 import { EnrichedListing, Review, Reservation, BankInfo, PaymentMethod, ItemType } from '../types';
 import { ReviewModal } from '../components/ReviewModal';
 import { ReceiptModal } from '../components/ReceiptModal';
+import { ChatModal } from '../components/ChatModal';
 
 export const Profile: React.FC = () => {
   const { 
-    currentUser, 
-    getEnrichedListings, 
-    markAsShipped, 
-    confirmReceipt, 
-    markAsSoldOutside, 
-    addReview, 
-    getUserReviews, 
-    users,
-    reservations,
-    approveReservation,
-    rejectReservation,
-    cancelReservation,
-    extendReservation,
-    updateUserFinancials,
-    depositFunds,
-    deleteListing,
-    updateUser, // Imported for self-edit
-    catalog // Need catalog to check ItemType in reservations
+    currentUser, getEnrichedListings, markAsShipped, confirmReceipt, markAsSoldOutside, 
+    addReview, getUserReviews, users, reservations, approveReservation, rejectReservation, 
+    cancelReservation, extendReservation, updateUserFinancials, depositFunds, deleteListing, 
+    updateUser, adminCreateUser, catalog 
   } = useStore();
   
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'SALES' | 'PURCHASES' | 'RESERVATIONS' | 'REVIEWS' | 'FINANCIAL'>('SALES');
   const [trackingInput, setTrackingInput] = useState<{ [key: string]: string }>({});
-  
-  // Financial Form States
   const [bankForm, setBankForm] = useState<Partial<BankInfo>>(currentUser?.bankInfo || { accountType: 'CORRENTE' });
   const [isEditingBank, setIsEditingBank] = useState(false); 
   const [cardForm, setCardForm] = useState({ holderName: '', number: '', expiry: '', cvv: '' });
-  
-  // Deposit State & Flow
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositStep, setDepositStep] = useState<'AMOUNT' | 'METHOD' | 'PAYMENT_ACTION' | 'PROCESSING' | 'SUCCESS'>('AMOUNT');
   const [selectedDepositMethod, setSelectedDepositMethod] = useState<string>('');
-  
-  // Temporary state for new card in deposit flow
   const [depositCardForm, setDepositCardForm] = useState({ holderName: '', number: '', expiry: '', cvv: '' });
-
-  // Modal State
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<{id: string, name: string, listingId: string, type: 'BUYER' | 'SELLER'} | null>(null);
-
-  // Edit Profile Modal
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
-  const [editProfileForm, setEditProfileForm] = useState({
-    name: '', nickname: '', phone: '', address: '', password: ''
-  });
-
-  // Receipt Modal State
+  const [editProfileForm, setEditProfileForm] = useState({ name: '', nickname: '', phone: '', address: '', password: '' });
   const [receiptData, setReceiptData] = useState<{listing: EnrichedListing, role: 'BUYER' | 'SELLER'} | null>(null);
 
-  if (!currentUser) {
-    navigate('/login');
-    return null;
-  }
+  // Chat Integration State
+  const [chatData, setChatData] = useState<{listing: EnrichedListing, receiverId: string, receiverName: string} | null>(null);
+
+  if (!currentUser) { navigate('/login'); return null; }
 
   const listings = getEnrichedListings();
   const myListings = listings.filter(l => l.sellerId === currentUser.id);
   const myPurchases = listings.filter(l => l.buyerId === currentUser.id);
   const myReviews = getUserReviews(currentUser.id);
-
-  // Completed Transactions for Receipt Library
-  const myCompletedSales = myListings.filter(l => l.status === 'CONCLUÍDO');
-  const myCompletedPurchases = myPurchases.filter(l => l.status === 'CONCLUÍDO');
-  const allCompletedTransactions = [
-    ...myCompletedSales.map(l => ({ ...l, userRole: 'SELLER' as const })),
-    ...myCompletedPurchases.map(l => ({ ...l, userRole: 'BUYER' as const }))
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  // Reservations Logic
+  const myCompletedTransactions = [...myListings.filter(l => l.status === 'CONCLUÍDO').map(l => ({ ...l, userRole: 'SELLER' as const })), ...myPurchases.filter(l => l.status === 'CONCLUÍDO').map(l => ({ ...l, userRole: 'BUYER' as const }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const myIncomingReservations = reservations.filter(r => r.sellerId === currentUser.id && r.status === 'PENDENTE');
   const myActiveReservations = reservations.filter(r => r.sellerId === currentUser.id && r.status === 'APROVADA');
   const myRequestedReservations = reservations.filter(r => r.buyerId === currentUser.id);
 
   const handleShip = (id: string) => {
     const code = trackingInput[id];
-    if (!code) return alert("Digite o código de rastreio");
+    if (!code) return alert("Digite o código");
     markAsShipped(id, code);
   };
 
   const handleConfirmReceipt = (id: string) => {
-    if(confirm("Você confirma que recebeu o produto em bom estado? O dinheiro será liberado para o vendedor.")) {
-      confirmReceipt(id);
-    }
+    if(confirm("Confirmar recebimento?")) confirmReceipt(id);
   };
 
   const handleSoldOutside = (id: string) => {
-    if(confirm("Confirmar venda fora do site? Isso removerá o item da lista de disponíveis e não haverá cobrança de taxa de serviço.")) {
-      markAsSoldOutside(id);
-    }
+    if(confirm("Confirmar venda fora?")) markAsSoldOutside(id);
   };
   
   const handleDelete = (id: string) => {
-     if(confirm("Tem certeza que deseja excluir este anúncio? Esta ação não pode ser desfeita.")) {
-         deleteListing(id);
-     }
+     if(confirm("Excluir anúncio?")) deleteListing(id);
   };
 
   const handleExtend = (r: Reservation, isEquipment: boolean) => {
-    if (r.days >= 10) return alert("Limite máximo de 10 dias atingido.");
-    const cost = isEquipment ? "R$ 5,00" : "R$ 1,50";
-    const daysToAdd = prompt(`Quantos dias adicionar? (${cost} por dia)`, "1");
-    if (daysToAdd) {
-      const days = parseInt(daysToAdd);
-      if (days > 0) {
-         if (r.days + days > 10) {
-           alert(`Você só pode adicionar mais ${10 - r.days} dias.`);
-           return;
-         }
-         // Debit Check warning logic handled inside store but good to alert here
-         if(confirm(`Confirmar extensão por ${days} dias? O valor será debitado da sua carteira.`)) {
-            extendReservation(r.id, days);
-         }
-      }
-    }
+    const daysToAdd = prompt(`Dias a adicionar?`, "1");
+    if (daysToAdd) extendReservation(r.id, parseInt(daysToAdd));
   };
 
-  const handleShareInvite = async () => {
-    const shareData = {
-      title: "Convite Vinil D'oro",
-      text: `Olá! Estou usando o Vinil D'oro para negociar meus discos. Cadastre-se e confira minha coleção!`,
-      url: window.location.origin
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.log('User cancelled share');
-      }
-    } else {
-      navigator.clipboard.writeText(shareData.url);
-      alert("Link de cadastro copiado! Envie para seus amigos.");
-    }
+  const handleOpenChat = (listing: EnrichedListing, role: 'BUYER' | 'SELLER') => {
+    const receiverId = role === 'BUYER' ? listing.buyerId! : listing.sellerId;
+    const receiverName = role === 'BUYER' ? listing.buyerName! : listing.sellerName;
+    setChatData({ listing, receiverId, receiverName });
   };
 
-  // Profile Edit Handlers
-  const openEditProfile = () => {
-    setEditProfileForm({
-      name: currentUser.name,
-      nickname: currentUser.nickname,
-      phone: currentUser.phone,
-      address: currentUser.address,
-      password: ''
-    });
-    setIsEditProfileModalOpen(true);
-  };
+  const maskDocument = (doc?: string) => doc ? doc.slice(0,1) + '**.***.**' + doc.slice(-3) : 'N/A';
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentUser) return;
-
-    updateUser({
-      ...currentUser,
-      name: editProfileForm.name,
-      nickname: editProfileForm.nickname,
-      phone: editProfileForm.phone,
-      address: editProfileForm.address,
-      password: editProfileForm.password ? editProfileForm.password : currentUser.password
-    });
-    
-    setIsEditProfileModalOpen(false);
-    alert("Perfil atualizado com sucesso!");
-  };
-
-  // Masking Logic
-  const maskDocument = (doc?: string) => {
-    if (!doc) return 'N/A';
-    const clean = doc.replace(/\D/g, '');
-    if (clean.length < 4) return '***';
-    const first = clean.substring(0, 1);
-    const last3 = clean.substring(clean.length - 3);
-    return `${first}**.***.**${last3}`;
-  };
-
-  const maskBankData = (data: string) => {
-    if (!data || data.length < 4) return '****';
-    return '****' + data.slice(-4);
-  }
-
-  // Financial Handlers
   const handleSaveBankInfo = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bankForm.bankName || !bankForm.agency || !bankForm.accountNumber || !bankForm.pixKey) {
-      return alert("Preencha todos os dados bancários.");
-    }
     updateUserFinancials(bankForm as BankInfo, undefined);
-    setIsEditingBank(false); // Switch back to view mode
-    alert("Dados bancários salvos com sucesso!");
+    setIsEditingBank(false);
   };
 
   const handleAddCard = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cardForm.number || !cardForm.holderName || !cardForm.expiry || !cardForm.cvv) {
-      return alert("Preencha todos os dados do cartão.");
-    }
-    
-    // Simulate Card Addition
-    const newCard: PaymentMethod = {
-      id: `pm-${Date.now()}`,
-      type: 'CREDIT_CARD',
-      last4: cardForm.number.slice(-4),
-      brand: 'Mastercard', // Mocked
-      holderName: cardForm.holderName
-    };
-
-    updateUserFinancials(undefined, newCard);
-    setCardForm({ holderName: '', number: '', expiry: '', cvv: '' }); // Reset
-    alert("Cartão adicionado com sucesso!");
-  };
-
-  // Deposit Flow Handlers
-  const openDepositModal = () => {
-    setDepositAmount('');
-    setDepositStep('AMOUNT');
-    setSelectedDepositMethod('');
-    setDepositCardForm({ holderName: '', number: '', expiry: '', cvv: '' });
-    setIsDepositModalOpen(true);
-  };
-
-  const handleDepositNext = () => {
-    const amount = parseFloat(depositAmount);
-    if (isNaN(amount) || amount <= 0) {
-      return alert("Digite um valor válido.");
-    }
-    setDepositStep('METHOD');
-  };
-
-  const handleMethodSelect = (method: string) => {
-    setSelectedDepositMethod(method);
-    setDepositStep('PAYMENT_ACTION');
-  };
-
-  const handleDepositProcess = () => {
-    // Validate Card if New Card selected
-    if (selectedDepositMethod === 'NEW_CARD') {
-       if (!depositCardForm.number || !depositCardForm.expiry || !depositCardForm.cvv || !depositCardForm.holderName) {
-         return alert("Preencha os dados do cartão.");
-       }
-       // Save card implicitly for this user session mock or just proceed
-       // Here we just proceed as if it was a one-time payment
-    }
-
-    setDepositStep('PROCESSING');
-    
-    // Simulate Bank/Card Processing Time
-    setTimeout(() => {
-      const amount = parseFloat(depositAmount);
-      
-      // If using new card, maybe we want to save it? For now, let's just deposit.
-      if (selectedDepositMethod === 'NEW_CARD') {
-         const newCard: PaymentMethod = {
-            id: `pm-${Date.now()}`,
-            type: 'CREDIT_CARD',
-            last4: depositCardForm.number.slice(-4),
-            brand: 'Mastercard',
-            holderName: depositCardForm.holderName
-         };
-         updateUserFinancials(undefined, newCard);
-      }
-
-      depositFunds(amount);
-      setDepositStep('SUCCESS');
-    }, 3000);
-  };
-
-  const openReviewModal = (listing: EnrichedListing, type: 'BUYER' | 'SELLER') => {
-    if (type === 'SELLER') {
-      // Buyer is reviewing Seller
-      setReviewTarget({
-        id: listing.sellerId,
-        name: listing.sellerName,
-        listingId: listing.id,
-        type: 'SELLER'
-      });
-    } else {
-      // Seller is reviewing Buyer
-      setReviewTarget({
-        id: listing.buyerId!,
-        name: listing.buyerName!,
-        listingId: listing.id,
-        type: 'BUYER'
-      });
-    }
-    setIsReviewModalOpen(true);
+    updateUserFinancials(undefined, { id: `pm-${Date.now()}`, type: 'CREDIT_CARD', last4: cardForm.number.slice(-4), brand: 'Card', holderName: cardForm.holderName });
+    setCardForm({ holderName: '', number: '', expiry: '', cvv: '' });
   };
 
   const submitReview = (rating: number, comment: string) => {
-    if (!reviewTarget || !currentUser) return;
-    
-    addReview({
-      listingId: reviewTarget.listingId,
-      fromUserId: currentUser.id,
-      toUserId: reviewTarget.id,
-      type: reviewTarget.type === 'SELLER' ? 'AVALIACAO_VENDEDOR' : 'AVALIACAO_COMPRADOR',
-      rating,
-      comment
-    });
-    
+    if (!reviewTarget) return;
+    addReview({ listingId: reviewTarget.listingId, fromUserId: currentUser.id, toUserId: reviewTarget.id, type: reviewTarget.type === 'SELLER' ? 'AVALIACAO_VENDEDOR' : 'AVALIACAO_COMPRADOR', rating, comment });
     setIsReviewModalOpen(false);
-    alert("Avaliação enviada com sucesso!");
-  };
-
-  const openReceipt = (listing: EnrichedListing, role: 'BUYER' | 'SELLER') => {
-    setReceiptData({ listing, role });
   };
 
   const renderStatusBadge = (status: string) => {
-    const colors: {[key: string]: string} = {
-      'DISPONÍVEL': 'bg-blue-900 text-blue-200',
-      'RESERVADO': 'bg-purple-900 text-purple-200',
-      'AGUARDANDO_ENVIO': 'bg-yellow-900 text-yellow-200',
-      'ENVIADO': 'bg-purple-900 text-purple-200',
-      'CONCLUÍDO': 'bg-green-900 text-green-200',
-      'VENDIDO_FORA': 'bg-gray-700 text-gray-300'
-    };
+    const colors: {[key: string]: string} = { 'DISPONÍVEL': 'bg-blue-900', 'RESERVADO': 'bg-purple-900', 'AGUARDANDO_ENVIO': 'bg-yellow-900', 'ENVIADO': 'bg-purple-900', 'CONCLUÍDO': 'bg-green-900', 'VENDIDO_FORA': 'bg-gray-700' };
     return <span className={`px-2 py-1 rounded text-xs font-bold ${colors[status] || 'bg-gray-700'}`}>{status}</span>;
   };
 
-  const renderStars = (rating: number, count: number) => (
-    <div className="flex items-center text-yellow-400">
-      <span className="text-xl mr-1">★</span>
-      <span className="font-bold text-lg text-white">{count > 0 ? rating.toFixed(1) : '-'}</span>
-      <span className="text-gray-500 text-xs ml-1">({count})</span>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-vinyl-black py-8 px-4">
-      {/* Review Modal */}
-      {reviewTarget && (
-        <ReviewModal 
-          isOpen={isReviewModalOpen}
-          onClose={() => setIsReviewModalOpen(false)}
-          onSubmit={submitReview}
-          targetName={reviewTarget.name}
-          type={reviewTarget.type}
-        />
-      )}
-
-      {/* Edit Profile Modal */}
-      {isEditProfileModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4">
-          <div className="bg-gray-900 rounded-xl shadow-2xl max-w-md w-full border border-gray-700 p-6">
-            <h3 className="text-lg font-bold text-white mb-6 border-b border-gray-700 pb-2">Editar Meu Perfil</h3>
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Nome Completo</label>
-                <input type="text" value={editProfileForm.name} onChange={e => setEditProfileForm({...editProfileForm, name: e.target.value})} className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Apelido (Loja)</label>
-                <input type="text" value={editProfileForm.nickname} onChange={e => setEditProfileForm({...editProfileForm, nickname: e.target.value})} className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Telefone</label>
-                <input type="text" value={editProfileForm.phone} onChange={e => setEditProfileForm({...editProfileForm, phone: e.target.value})} className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Endereço</label>
-                <input type="text" value={editProfileForm.address} onChange={e => setEditProfileForm({...editProfileForm, address: e.target.value})} className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Nova Senha (deixe em branco para manter)</label>
-                <input type="password" value={editProfileForm.password} onChange={e => setEditProfileForm({...editProfileForm, password: e.target.value})} placeholder="******" className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 text-sm" />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setIsEditProfileModalOpen(false)} className="flex-1 bg-gray-700 text-white py-2 rounded font-bold">Cancelar</button>
-                <button type="submit" className="flex-1 bg-vinyl-accent text-black py-2 rounded font-bold hover:bg-yellow-600">Salvar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Receipt Modal */}
-      {receiptData && (
-        <ReceiptModal
-          isOpen={!!receiptData}
-          onClose={() => setReceiptData(null)}
-          listing={receiptData.listing}
-          viewerRole={receiptData.role}
-        />
-      )}
-
-      {/* Deposit Modal (Enhanced Payment Flow) */}
-      {isDepositModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]">
-           <div className="bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full border border-gray-700 p-6 relative">
-              <button onClick={() => setIsDepositModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
-              
-              <h3 className="text-lg font-bold text-white mb-6 border-b border-gray-700 pb-2">
-                {depositStep === 'SUCCESS' ? 'Recarga Concluída' : 'Adicionar Saldo'}
-              </h3>
-              
-              {/* Step 1: Amount */}
-              {depositStep === 'AMOUNT' && (
-                <div className="animate-[fadeIn_0.3s]">
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Qual valor deseja adicionar?</label>
-                  <div className="relative mb-6">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      value={depositAmount}
-                      onChange={e => setDepositAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full bg-gray-900 text-white p-3 pl-10 border border-gray-700 rounded focus:border-vinyl-accent outline-none text-xl font-bold"
-                      autoFocus
-                    />
-                  </div>
-                  <button 
-                    onClick={handleDepositNext}
-                    className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded transition"
-                  >
-                    Selecionar Pagamento
-                  </button>
-                </div>
-              )}
-
-              {/* Step 2: Payment Method Selection */}
-              {depositStep === 'METHOD' && (
-                <div className="animate-[fadeIn_0.3s]">
-                  <p className="text-gray-400 text-sm mb-4">Valor a creditar: <span className="text-white font-bold">R$ {parseFloat(depositAmount).toFixed(2)}</span></p>
-                  
-                  <p className="text-xs font-bold text-gray-500 uppercase mb-2">Como deseja pagar?</p>
-                  <div className="space-y-2 mb-6">
-                    <button 
-                      onClick={() => handleMethodSelect('PIX')}
-                      className="w-full p-3 rounded border border-gray-700 bg-gray-900 hover:border-vinyl-accent text-left flex items-center gap-3 transition group"
-                    >
-                      <span className="text-xl grayscale group-hover:grayscale-0">💠</span>
-                      <div>
-                        <p className="font-bold text-white text-sm">PIX</p>
-                        <p className="text-xs text-gray-500">Aprovação imediata</p>
-                      </div>
-                    </button>
-
-                    {currentUser.savedPaymentMethods && currentUser.savedPaymentMethods.map(pm => (
-                      <button 
-                        key={pm.id}
-                        onClick={() => handleMethodSelect(pm.id)}
-                        className="w-full p-3 rounded border border-gray-700 bg-gray-900 hover:border-vinyl-accent text-left flex items-center gap-3 transition group"
-                      >
-                        <span className="text-xl">💳</span>
-                        <div>
-                          <p className="font-bold text-white text-sm">{pm.brand} •••• {pm.last4}</p>
-                          <p className="text-[10px] text-gray-500">{pm.holderName}</p>
-                        </div>
-                      </button>
-                    ))}
-
-                    <button 
-                      onClick={() => handleMethodSelect('NEW_CARD')}
-                      className="w-full p-3 rounded border border-gray-700 bg-gray-900 hover:border-vinyl-accent text-left flex items-center gap-3 transition group"
-                    >
-                      <span className="text-xl text-gray-500 group-hover:text-white">+</span>
-                      <div>
-                        <p className="font-bold text-white text-sm">Novo Cartão de Crédito</p>
-                        <p className="text-[10px] text-gray-500">Adicionar e pagar</p>
-                      </div>
-                    </button>
-                  </div>
-
-                  <button onClick={() => setDepositStep('AMOUNT')} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded">Voltar</button>
-                </div>
-              )}
-
-              {/* Step 3: Payment Action (Enter Details or Pay) */}
-              {depositStep === 'PAYMENT_ACTION' && (
-                <div className="animate-[fadeIn_0.3s]">
-                   {selectedDepositMethod === 'PIX' ? (
-                     <div className="text-center">
-                        <p className="text-white font-bold mb-2">Escaneie o QR Code</p>
-                        <div className="bg-white p-2 rounded inline-block mb-4">
-                           <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=00020101021226580014br.gov.bcb.pix${Date.now()}`} alt="QR Code PIX" />
-                        </div>
-                        <p className="text-xs text-gray-400 mb-2">Ou copie a chave abaixo:</p>
-                        <div className="bg-gray-900 p-2 rounded border border-gray-700 text-xs text-gray-300 break-all font-mono mb-4">
-                           00020126580014br.gov.bcb.pix0136123e4567-e89b-12d3-a456-426614174000
-                        </div>
-                        <p className="text-xs text-yellow-500 mb-4 bg-yellow-900/10 p-2 rounded">
-                          Atenção: Faça a transferência exata de <strong>R$ {parseFloat(depositAmount).toFixed(2)}</strong> para validar.
-                        </p>
-                        <div className="flex gap-2">
-                           <button onClick={() => setDepositStep('METHOD')} className="flex-1 bg-gray-700 text-white font-bold py-2 rounded text-sm">Voltar</button>
-                           <button onClick={handleDepositProcess} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded text-sm">Confirmar Pagamento</button>
-                        </div>
-                     </div>
-                   ) : selectedDepositMethod === 'NEW_CARD' ? (
-                     <div>
-                        <h4 className="text-white font-bold mb-4">Dados do Cartão</h4>
-                        <div className="space-y-3 mb-4">
-                           <input 
-                             type="text" 
-                             placeholder="Nome no Cartão"
-                             value={depositCardForm.holderName}
-                             onChange={e => setDepositCardForm({...depositCardForm, holderName: e.target.value})}
-                             className="w-full bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm"
-                           />
-                           <input 
-                             type="text" 
-                             placeholder="Número do Cartão"
-                             maxLength={16}
-                             value={depositCardForm.number}
-                             onChange={e => setDepositCardForm({...depositCardForm, number: e.target.value})}
-                             className="w-full bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm"
-                           />
-                           <div className="flex gap-2">
-                              <input 
-                                type="text" 
-                                placeholder="MM/AA"
-                                maxLength={5}
-                                value={depositCardForm.expiry}
-                                onChange={e => setDepositCardForm({...depositCardForm, expiry: e.target.value})}
-                                className="flex-1 bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm"
-                              />
-                              <input 
-                                type="text" 
-                                placeholder="CVV"
-                                maxLength={3}
-                                value={depositCardForm.cvv}
-                                onChange={e => setDepositCardForm({...depositCardForm, cvv: e.target.value})}
-                                className="w-20 bg-gray-900 text-white p-2 border border-gray-600 rounded text-sm"
-                              />
-                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                           <button onClick={() => setDepositStep('METHOD')} className="flex-1 bg-gray-700 text-white font-bold py-2 rounded text-sm">Voltar</button>
-                           <button onClick={handleDepositProcess} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded text-sm">Pagar R$ {parseFloat(depositAmount).toFixed(2)}</button>
-                        </div>
-                     </div>
-                   ) : (
-                     // Saved Card Confirmation
-                     <div className="text-center">
-                        <p className="text-gray-400 mb-4">Confirmar pagamento com cartão final <span className="text-white font-bold">{currentUser.savedPaymentMethods?.find(c => c.id === selectedDepositMethod)?.last4}</span>?</p>
-                        <div className="flex gap-2">
-                           <button onClick={() => setDepositStep('METHOD')} className="flex-1 bg-gray-700 text-white font-bold py-2 rounded text-sm">Voltar</button>
-                           <button onClick={handleDepositProcess} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded text-sm">Confirmar</button>
-                        </div>
-                     </div>
-                   )}
-                </div>
-              )}
-
-              {/* Step 4: Processing */}
-              {depositStep === 'PROCESSING' && (
-                <div className="text-center py-8 animate-[fadeIn_0.3s]">
-                   <div className="w-16 h-16 border-4 border-gray-700 border-t-vinyl-accent rounded-full animate-spin mx-auto mb-4"></div>
-                   <p className="text-white font-bold">Processando Transação Bancária...</p>
-                   <p className="text-gray-500 text-xs mt-2">Aguardando confirmação do banco.</p>
-                </div>
-              )}
-
-              {/* Step 5: Success */}
-              {depositStep === 'SUCCESS' && (
-                <div className="text-center py-4 animate-[fadeIn_0.3s]">
-                   <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg shadow-green-900/50">✓</div>
-                   <h4 className="text-white font-bold text-lg mb-1">Pagamento Aprovado!</h4>
-                   <p className="text-gray-400 text-sm mb-6">O saldo de <strong>R$ {parseFloat(depositAmount).toFixed(2)}</strong> já está disponível na sua carteira.</p>
-                   <button onClick={() => setIsDepositModalOpen(false)} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded">Fechar</button>
-                </div>
-              )}
-           </div>
-        </div>
-      )}
+      <ReviewModal isOpen={isReviewModalOpen} onClose={() => setIsReviewModalOpen(false)} onSubmit={submitReview} targetName={reviewTarget?.name || ''} type={reviewTarget?.type || 'SELLER'} />
+      <ReceiptModal isOpen={!!receiptData} onClose={() => setReceiptData(null)} listing={receiptData?.listing!} viewerRole={receiptData?.role!} />
+      {chatData && <ChatModal isOpen={!!chatData} onClose={() => setChatData(null)} listing={chatData.listing} receiverId={chatData.receiverId} receiverName={chatData.receiverName} />}
 
       <div className="max-w-5xl mx-auto">
-        
-        {/* Header with Stats */}
         <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700 mb-6 flex flex-col md:flex-row items-center gap-8 relative">
-          <button 
-            onClick={openEditProfile} 
-            className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-xs border border-gray-600 transition"
-          >
-            ✏️ Editar Perfil
-          </button>
-
-          <div className="w-24 h-24 bg-gradient-to-br from-vinyl-accent to-yellow-200 rounded-full flex items-center justify-center text-3xl font-bold text-black shadow-lg shadow-yellow-900/50">
-            {currentUser.name.charAt(0)}
-          </div>
+          <div className="w-24 h-24 bg-gradient-to-br from-vinyl-accent to-yellow-200 rounded-full flex items-center justify-center text-3xl font-bold text-black">{currentUser.name.charAt(0)}</div>
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-2xl font-bold text-white mb-1">{currentUser.name}</h1>
-            <p className="text-gray-400 text-sm mb-1">{currentUser.nickname} (Apelido)</p>
-            <p className="text-gray-500 text-xs mb-4">{currentUser.role} • Membro desde 2024</p>
-            
-            <div className="flex flex-wrap gap-6 justify-center md:justify-start bg-gray-900 p-4 rounded-lg border border-gray-700 inline-flex">
-              <div className="text-center px-4 border-r border-gray-700 last:border-0">
-                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Vendedor</p>
-                 {renderStars(currentUser.sellerRating, currentUser.sellerReviewCount)}
-              </div>
-              <div className="text-center px-4">
-                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Comprador</p>
-                 {renderStars(currentUser.buyerRating, currentUser.buyerReviewCount)}
-              </div>
-            </div>
+            <p className="text-gray-400 text-sm">{currentUser.nickname}</p>
           </div>
-          
-          {/* Wallet Display for Everyone */}
-           <div className="flex flex-col gap-2">
-             <div className="bg-gray-900 p-4 rounded-lg border border-gray-700 min-w-[220px] text-center flex flex-col justify-between">
-               <div>
-                 <span className="text-gray-400 text-xs uppercase block mb-1">Saldo em Carteira</span>
-                 <span className="text-vinyl-gold font-bold text-2xl">R$ {currentUser.walletBalance.toFixed(2)}</span>
-               </div>
-               <button 
-                 onClick={openDepositModal}
-                 className="mt-3 text-xs bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded border border-gray-600 font-bold transition"
-               >
-                 + Adicionar Saldo
-               </button>
-             </div>
-             
-             {/* Share Invite Card */}
-             <button 
-               onClick={handleShareInvite}
-               className="bg-gradient-to-r from-purple-900/50 to-blue-900/50 hover:from-purple-900/80 hover:to-blue-900/80 p-3 rounded-lg border border-purple-500/30 flex items-center justify-center gap-2 group transition"
-             >
-                <span className="text-xl group-hover:scale-110 transition">🚀</span>
-                <div className="text-left">
-                   <p className="text-white font-bold text-xs">Convide Amigos</p>
-                   <p className="text-[10px] text-gray-400">Compartilhar link de acesso</p>
-                </div>
-             </button>
-           </div>
+          <div className="bg-gray-900 p-4 rounded-lg border border-gray-700 min-w-[220px] text-center">
+             <span className="text-gray-400 text-xs uppercase block mb-1">Saldo</span>
+             <span className="text-vinyl-gold font-bold text-2xl">R$ {currentUser.walletBalance.toFixed(2)}</span>
+          </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex border-b border-gray-700 mb-6 overflow-x-auto">
-          {['VENDEDOR', 'AMBOS'].includes(currentUser.role) && (
-            <button 
-              onClick={() => setActiveTab('SALES')}
-              className={`px-6 py-3 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'SALES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400 hover:text-white'}`}
-            >
-              Vendas & Envios
-            </button>
-          )}
-          {['COMPRADOR', 'AMBOS'].includes(currentUser.role) && (
-            <button 
-              onClick={() => setActiveTab('PURCHASES')}
-              className={`px-6 py-3 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'PURCHASES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400 hover:text-white'}`}
-            >
-              Minhas Compras
-            </button>
-          )}
-          <button 
-            onClick={() => setActiveTab('RESERVATIONS')}
-            className={`px-6 py-3 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'RESERVATIONS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400 hover:text-white'}`}
-          >
-            Reservas
-          </button>
-          <button 
-            onClick={() => setActiveTab('REVIEWS')}
-            className={`px-6 py-3 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'REVIEWS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400 hover:text-white'}`}
-          >
-            Avaliações ({myReviews.length})
-          </button>
-          <button 
-            onClick={() => setActiveTab('FINANCIAL')}
-            className={`px-6 py-3 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'FINANCIAL' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400 hover:text-white'}`}
-          >
-            Financeiro
-          </button>
+          <button onClick={() => setActiveTab('SALES')} className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'SALES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400'}`}>Vendas</button>
+          <button onClick={() => setActiveTab('PURCHASES')} className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'PURCHASES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400'}`}>Compras</button>
+          <button onClick={() => setActiveTab('RESERVATIONS')} className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'RESERVATIONS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400'}`}>Reservas</button>
+          <button onClick={() => setActiveTab('FINANCIAL')} className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'FINANCIAL' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-400'}`}>Financeiro</button>
         </div>
 
-        {/* Financial View */}
-        {activeTab === 'FINANCIAL' && (
-          <div className="animate-[fadeIn_0.3s] space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              
-              {/* Seller Section: Receiving Money */}
-              {['VENDEDOR', 'AMBOS'].includes(currentUser.role) && (
-                <div>
-                  <h2 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Dados de Recebimento (Vendedor)</h2>
-                  <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                    <div className="flex justify-between items-start mb-4">
-                       <p className="text-sm text-gray-400">Dados bancários para recebimento de vendas.</p>
-                       {currentUser.bankInfo && !isEditingBank && (
-                         <button onClick={() => setIsEditingBank(true)} className="text-xs text-vinyl-accent underline">
-                           Editar
-                         </button>
-                       )}
-                    </div>
-                    
-                    {currentUser.bankInfo && !isEditingBank ? (
-                      // Masked View
-                      <div className="space-y-3 bg-gray-900 p-4 rounded border border-gray-700">
-                         <div className="flex justify-between border-b border-gray-800 pb-2">
-                           <span className="text-gray-500 text-xs">Banco</span>
-                           <span className="text-white text-sm font-bold">{currentUser.bankInfo.bankName}</span>
-                         </div>
-                         <div className="flex justify-between border-b border-gray-800 pb-2">
-                           <span className="text-gray-500 text-xs">Agência</span>
-                           <span className="text-white text-sm font-bold">{maskBankData(currentUser.bankInfo.agency)}</span>
-                         </div>
-                         <div className="flex justify-between border-b border-gray-800 pb-2">
-                           <span className="text-gray-500 text-xs">Conta</span>
-                           <span className="text-white text-sm font-bold">{maskBankData(currentUser.bankInfo.accountNumber)}</span>
-                         </div>
-                         <div className="flex justify-between">
-                           <span className="text-gray-500 text-xs">Chave Pix</span>
-                           <span className="text-white text-sm font-bold">{maskDocument(currentUser.bankInfo.pixKey)}</span>
-                         </div>
-                      </div>
-                    ) : (
-                      // Form View
-                      <form onSubmit={handleSaveBankInfo} className="space-y-4 animate-[fadeIn_0.2s]">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Banco</label>
-                          <input 
-                            type="text" 
-                            value={bankForm.bankName || ''}
-                            onChange={e => setBankForm({...bankForm, bankName: e.target.value})}
-                            className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                            placeholder="Ex: Nubank, Bradesco..."
-                          />
-                        </div>
-                        <div className="flex gap-4">
-                          <div className="flex-1">
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Agência</label>
-                            <input 
-                              type="text" 
-                              value={bankForm.agency || ''}
-                              onChange={e => setBankForm({...bankForm, agency: e.target.value})}
-                              className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Conta (com dígito)</label>
-                            <input 
-                              type="text" 
-                              value={bankForm.accountNumber || ''}
-                              onChange={e => setBankForm({...bankForm, accountNumber: e.target.value})}
-                              className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Tipo de Conta</label>
-                          <select 
-                            value={bankForm.accountType || 'CORRENTE'}
-                            onChange={e => setBankForm({...bankForm, accountType: e.target.value as any})}
-                            className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                          >
-                            <option value="CORRENTE">Conta Corrente</option>
-                            <option value="POUPANCA">Conta Poupança</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-vinyl-accent mb-1">Chave PIX (Principal)</label>
-                          <input 
-                            type="text" 
-                            value={bankForm.pixKey || ''}
-                            onChange={e => setBankForm({...bankForm, pixKey: e.target.value})}
-                            className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                            placeholder="CPF, Email, Telefone..."
-                          />
-                        </div>
-                        <div className="flex gap-2 mt-2">
-                           {isEditingBank && (
-                             <button type="button" onClick={() => setIsEditingBank(false)} className="flex-1 bg-gray-700 text-white font-bold py-2 rounded">Cancelar</button>
-                           )}
-                           <button type="submit" className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded">
-                             Salvar Dados Bancários
-                           </button>
-                        </div>
-                      </form>
-                    )}
+        {activeTab === 'SALES' && (
+          <div className="space-y-4">
+            {myListings.map(l => (
+              <div key={l.id} className="bg-gray-800 p-4 rounded-lg border border-gray-700 flex gap-4">
+                <img src={l.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded" />
+                <div className="flex-1">
+                  <div className="flex justify-between">
+                    <div><h3 className="font-bold text-white">{l.catalogItem.title}</h3><p className="text-sm text-gray-400">R$ {l.price.toFixed(2)}</p></div>
+                    {renderStatusBadge(l.status)}
                   </div>
-                </div>
-              )}
-
-              {/* Buyer Section: Payment Methods */}
-              <div>
-                <h2 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Formas de Pagamento (Comprador)</h2>
-                
-                {/* Available Methods List */}
-                <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-6">
-                  <h3 className="text-md font-bold text-gray-300 mb-3">Métodos Salvos</h3>
-                  
-                  <div className="space-y-3 mb-4">
-                      {/* Default Methods */}
-                      <div className="flex items-center gap-3 p-3 bg-gray-900 rounded border border-gray-700 opacity-75">
-                        <span className="text-xl">💠</span>
-                        <div>
-                          <p className="text-white text-sm font-bold">PIX</p>
-                          <p className="text-xs text-gray-500">Pagamento instantâneo disponível no checkout.</p>
+                  <div className="mt-4 flex gap-2">
+                     {l.buyerId && (
+                       <button onClick={() => handleOpenChat(l, 'BUYER')} className="text-xs bg-blue-900/50 text-blue-300 border border-blue-800 px-3 py-1 rounded">Chat com Comprador</button>
+                     )}
+                     {l.status === 'AGUARDANDO_ENVIO' && (
+                        <div className="flex gap-2 flex-1">
+                          <input type="text" placeholder="Rastreio" className="flex-1 bg-gray-900 text-xs p-1 rounded border border-gray-700" value={trackingInput[l.id] || ''} onChange={e => setTrackingInput({...trackingInput, [l.id]: e.target.value})} />
+                          <button onClick={() => handleShip(l.id)} className="bg-blue-600 text-white text-xs px-2 rounded">Enviar</button>
                         </div>
-                      </div>
-
-                      {/* User Cards */}
-                      {currentUser.savedPaymentMethods && currentUser.savedPaymentMethods.map(pm => (
-                        <div key={pm.id} className="flex items-center gap-3 p-3 bg-gray-900 rounded border border-gray-600">
-                          <span className="text-xl">💳</span>
-                          <div>
-                            <p className="text-white text-sm font-bold">{pm.brand} •••• {pm.last4}</p>
-                            <p className="text-xs text-gray-500">{pm.holderName}</p>
-                          </div>
-                        </div>
-                      ))}
+                     )}
                   </div>
-                </div>
-
-                {/* Add Card Form */}
-                <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                    <h3 className="text-md font-bold text-vinyl-accent mb-3">+ Adicionar Cartão de Crédito</h3>
-                    <form onSubmit={handleAddCard} className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Nome no Cartão</label>
-                        <input 
-                          type="text" 
-                          value={cardForm.holderName}
-                          onChange={e => setCardForm({...cardForm, holderName: e.target.value})}
-                          className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Número do Cartão</label>
-                        <input 
-                          type="text" 
-                          maxLength={16}
-                          value={cardForm.number}
-                          onChange={e => setCardForm({...cardForm, number: e.target.value})}
-                          className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                          placeholder="0000 0000 0000 0000"
-                        />
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="flex-1">
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Validade (MM/AA)</label>
-                          <input 
-                            type="text" 
-                            maxLength={5}
-                            value={cardForm.expiry}
-                            onChange={e => setCardForm({...cardForm, expiry: e.target.value})}
-                            className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                            placeholder="MM/AA"
-                          />
-                        </div>
-                        <div className="w-24">
-                          <label className="block text-xs font-bold text-gray-500 mb-1">CVV</label>
-                          <input 
-                            type="text" 
-                            maxLength={3}
-                            value={cardForm.cvv}
-                            onChange={e => setCardForm({...cardForm, cvv: e.target.value})}
-                            className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm"
-                          />
-                        </div>
-                      </div>
-                      <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-2 rounded mt-2">
-                        Adicionar Cartão
-                      </button>
-                    </form>
                 </div>
               </div>
+            ))}
+          </div>
+        )}
 
-            </div>
-
-            {/* Receipt Library Section */}
-            <div className="mt-8">
-              <h2 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Biblioteca de Comprovantes</h2>
-              <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-                {allCompletedTransactions.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
-                    <p>Nenhuma transação concluída.</p>
-                    <p className="text-xs mt-1">Os comprovantes aparecerão aqui após a confirmação de recebimento.</p>
+        {activeTab === 'PURCHASES' && (
+          <div className="space-y-4">
+            {myPurchases.map(l => (
+              <div key={l.id} className="bg-gray-800 p-4 rounded-lg border border-gray-700 flex gap-4">
+                <img src={l.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded" />
+                <div className="flex-1">
+                  <div className="flex justify-between">
+                    <div><h3 className="font-bold text-white">{l.catalogItem.title}</h3><p className="text-sm text-gray-400">Vendedor: {l.sellerName}</p></div>
+                    {renderStatusBadge(l.status)}
                   </div>
-                ) : (
-                  <div className="divide-y divide-gray-700">
-                    {allCompletedTransactions.map(item => (
-                      <div key={item.id} className="p-4 flex flex-col md:flex-row justify-between items-center hover:bg-gray-900/50 transition">
-                         <div className="flex items-center gap-4 mb-2 md:mb-0 w-full md:w-auto">
-                            <div className={`p-2 rounded-full ${item.userRole === 'BUYER' ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'}`}>
-                              {item.userRole === 'BUYER' ? '⬇ Compra' : '⬆ Venda'}
-                            </div>
-                            <div>
-                              <p className="font-bold text-white text-sm">{item.catalogItem.title}</p>
-                              <p className="text-xs text-gray-400">
-                                {new Date(item.createdAt).toLocaleDateString()} • {item.userRole === 'BUYER' ? `De: ${item.sellerName}` : `Para: ${item.buyerName}`}
-                              </p>
-                              {item.status === 'CONCLUÍDO' && (
-                                <p className="text-[10px] text-gray-500 mt-1">
-                                  Doc {item.userRole === 'BUYER' ? 'Vendedor' : 'Comprador'}: {maskDocument(item.userRole === 'BUYER' ? item.sellerDocument : item.buyerDocument)}
-                                </p>
-                              )}
-                            </div>
-                         </div>
-                         <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                            <span className="font-mono text-white font-bold">R$ {item.price.toFixed(2)}</span>
-                            <button 
-                              onClick={() => openReceipt(item, item.userRole)}
-                              className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded flex items-center gap-1"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              Ver Comprovante
-                            </button>
-                         </div>
-                      </div>
-                    ))}
+                  <div className="mt-4 flex gap-2">
+                     <button onClick={() => handleOpenChat(l, 'SELLER')} className="text-xs bg-blue-900/50 text-blue-300 border border-blue-800 px-3 py-1 rounded">Chat com Vendedor</button>
+                     {l.status === 'ENVIADO' && <button onClick={() => handleConfirmReceipt(l.id)} className="bg-green-600 text-white text-xs px-3 py-1 rounded">Confirmar Recebimento</button>}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         )}
 
-        {/* Sales View */}
-        {activeTab === 'SALES' && ['VENDEDOR', 'AMBOS'].includes(currentUser.role) && (
-          <div className="space-y-4 animate-[fadeIn_0.3s]">
-            <h2 className="text-xl font-bold text-white mb-4">Gerenciar Vendas</h2>
-            {myListings.length === 0 ? (
-              <p className="text-gray-500">Você não tem itens listados.</p>
-            ) : (
-              myListings.map(listing => (
-                <div key={listing.id} className="bg-gray-800 p-4 rounded-lg border border-gray-700 flex flex-col md:flex-row gap-4">
-                  <img src={listing.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded" />
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-white text-lg">{listing.catalogItem.title}</h3>
-                        <p className="text-sm text-gray-400">{listing.condition} • R$ {listing.price.toFixed(2)}</p>
-                      </div>
-                      {renderStatusBadge(listing.status)}
-                    </div>
-                    
-                    {/* Actions based on status */}
-                    <div className="mt-4 bg-gray-900 p-3 rounded border border-gray-800">
-                      {listing.status === 'DISPONÍVEL' && (
-                        <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-                           <p className="text-sm text-gray-400">Anúncio ativo e visível para compradores.</p>
-                           <div className="flex gap-2">
-                             <button 
-                               onClick={() => navigate(`/edit/${listing.id}`)}
-                               className="text-xs text-blue-400 hover:text-white border border-blue-900 hover:border-blue-400 px-3 py-1 rounded transition"
-                             >
-                               Editar
-                             </button>
-                             <button 
-                               onClick={() => handleDelete(listing.id)}
-                               className="text-xs text-red-400 hover:text-white border border-red-900 hover:border-red-400 px-3 py-1 rounded transition"
-                             >
-                               Excluir
-                             </button>
-                             <button 
-                               onClick={() => handleSoldOutside(listing.id)}
-                               className="text-xs text-gray-400 hover:text-white border border-gray-600 hover:border-white px-3 py-1 rounded transition"
-                             >
-                               Marcar como Vendido Fora
-                             </button>
-                           </div>
-                        </div>
-                      )}
-
-                      {listing.status === 'RESERVADO' && (
-                        <div>
-                          <p className="text-sm text-purple-400 font-bold">Item Reservado</p>
-                          <p className="text-xs text-gray-500">Aguardando compra ou expiração do prazo.</p>
-                        </div>
-                      )}
-                      
-                      {listing.status === 'AGUARDANDO_ENVIO' && (
-                        <div>
-                          <p className="text-sm text-yellow-500 font-bold mb-2">Item Vendido! Envie o produto e informe o rastreio.</p>
-                          <div className="flex gap-2">
-                            <input 
-                              type="text" 
-                              placeholder="Código de Rastreio (Correios)" 
-                              className="flex-1 bg-gray-800 text-white px-3 py-2 text-sm rounded border border-gray-700"
-                              value={trackingInput[listing.id] || ''}
-                              onChange={(e) => setTrackingInput({...trackingInput, [listing.id]: e.target.value})}
-                            />
-                            <button 
-                              onClick={() => handleShip(listing.id)}
-                              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold"
-                            >
-                              Confirmar Envio
-                            </button>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-2">Comprador: {listing.buyerName}</p>
-                        </div>
-                      )}
-
-                      {listing.status === 'ENVIADO' && (
-                        <div>
-                          <p className="text-sm text-gray-300">Produto enviado. Aguardando confirmação do comprador.</p>
-                          <p className="text-sm text-vinyl-accent font-mono mt-1">Rastreio: {listing.trackingCode}</p>
-                        </div>
-                      )}
-
-                      {listing.status === 'CONCLUÍDO' && (
-                        <div className="flex flex-col gap-2">
-                          <div className="flex justify-between items-center">
-                             <p className="text-sm text-green-400">Transação finalizada. Fundos adicionados.</p>
-                             {!listing.sellerReviewedBuyer && (
-                               <button 
-                                 onClick={() => openReviewModal(listing, 'BUYER')}
-                                 className="bg-gray-700 hover:bg-gray-600 text-vinyl-accent border border-vinyl-accent text-xs px-3 py-1 rounded transition"
-                               >
-                                 Avaliar Comprador
-                               </button>
-                             )}
-                             {listing.sellerReviewedBuyer && (
-                               <span className="text-xs text-gray-500">Comprador avaliado ✅</span>
-                             )}
-                          </div>
-                          <button 
-                            onClick={() => openReceipt(listing, 'SELLER')}
-                            className="text-xs text-blue-300 hover:text-blue-100 underline text-left w-fit"
-                          >
-                            Ver Comprovante de Venda
-                          </button>
-                        </div>
-                      )}
-
-                      {listing.status === 'VENDIDO_FORA' && (
-                        <p className="text-sm text-gray-500 italic">Venda registrada externamente. Nenhuma taxa aplicada.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* Purchases View */}
-        {activeTab === 'PURCHASES' && ['COMPRADOR', 'AMBOS'].includes(currentUser.role) && (
-          <div className="space-y-4 animate-[fadeIn_0.3s]">
-            <h2 className="text-xl font-bold text-white mb-4">Histórico de Compras</h2>
-            {myPurchases.length === 0 ? (
-              <p className="text-gray-500">Você ainda não comprou nada.</p>
-            ) : (
-              myPurchases.map(listing => (
-                <div key={listing.id} className="bg-gray-800 p-4 rounded-lg border border-gray-700 flex flex-col md:flex-row gap-4">
-                  <img src={listing.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded" />
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-white text-lg">{listing.catalogItem.title}</h3>
-                        <p className="text-sm text-gray-400">Vendedor: {listing.sellerName}</p>
-                        <p className="text-sm text-gray-400">Preço: R$ {listing.price.toFixed(2)}</p>
-                      </div>
-                      {renderStatusBadge(listing.status)}
-                    </div>
-
-                    <div className="mt-4 bg-gray-900 p-3 rounded border border-gray-800">
-                      {listing.status === 'AGUARDANDO_ENVIO' && (
-                        <p className="text-sm text-gray-300">Pagamento retido com segurança. Aguardando o vendedor enviar o produto.</p>
-                      )}
-
-                      {listing.status === 'ENVIADO' && (
-                        <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-                          <div>
-                            <p className="text-sm text-white mb-1">Produto Enviado!</p>
-                            <p className="text-sm text-gray-400">Rastreio: <span className="text-vinyl-accent font-mono">{listing.trackingCode}</span></p>
-                            <a 
-                              href={`https://rastreamento.correios.com.br/app/index.php`} 
-                              target="_blank"
-                              className="text-xs text-blue-400 hover:underline"
-                            >
-                              Rastrear no site dos Correios
-                            </a>
-                          </div>
-                          <button 
-                            onClick={() => handleConfirmReceipt(listing.id)}
-                            className="w-full sm:w-auto bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold shadow-lg animate-pulse"
-                          >
-                            Recebi o Produto
-                          </button>
-                        </div>
-                      )}
-
-                      {listing.status === 'CONCLUÍDO' && (
-                         <div className="flex flex-col gap-2">
-                           <div className="flex justify-between items-center">
-                              <p className="text-sm text-gray-400">Compra finalizada. Aproveite seu vinil!</p>
-                              {!listing.buyerReviewedSeller && (
-                               <button 
-                                 onClick={() => openReviewModal(listing, 'SELLER')}
-                                 className="bg-vinyl-accent hover:bg-yellow-600 text-black text-xs font-bold px-3 py-1 rounded transition"
-                               >
-                                 Avaliar Vendedor
-                               </button>
-                             )}
-                              {listing.buyerReviewedSeller && (
-                               <span className="text-xs text-gray-500">Vendedor avaliado ✅</span>
-                             )}
-                           </div>
-                           <button 
-                              onClick={() => openReceipt(listing, 'BUYER')}
-                              className="text-xs text-blue-300 hover:text-blue-100 underline text-left w-fit"
-                            >
-                              Ver Comprovante de Pagamento
-                            </button>
-                         </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* Reservations View */}
         {activeTab === 'RESERVATIONS' && (
-          <div className="space-y-8 animate-[fadeIn_0.3s]">
-            
-            {/* Seller Section */}
-            {['VENDEDOR', 'AMBOS'].includes(currentUser.role) && (
-              <div>
-                <h3 className="text-lg font-bold text-vinyl-accent mb-4 border-b border-gray-700 pb-2">Solicitações de Reserva (Para você)</h3>
-                {myIncomingReservations.length === 0 ? (
-                  <p className="text-gray-500 text-sm mb-6">Nenhuma solicitação pendente.</p>
-                ) : (
-                  <div className="space-y-3 mb-6">
-                    {myIncomingReservations.map(res => {
-                      const listing = listings.find(l => l.id === res.listingId);
-                      const catalogItem = catalog.find(c => c.id === listing?.catalogItemId); // Lookup directly from catalog
-                      const buyer = users.find(u => u.id === res.buyerId);
-                      
-                      let estimatedReturn = 7.00;
-                      if (catalogItem?.itemType === ItemType.EQUIPMENT && listing) {
-                         estimatedReturn = listing.price * 0.07;
-                      }
-
-                      return (
-                        <div key={res.id} className="bg-gray-800 p-4 rounded border border-purple-900/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                          <div>
-                            <p className="text-white font-bold">{catalogItem?.title}</p>
-                            <p className="text-xs text-gray-400">Solicitado por: {buyer?.name}</p>
-                            <p className="text-xs text-green-400 font-bold">Valor a receber: R$ {estimatedReturn.toFixed(2)}</p>
-                            {catalogItem?.itemType === ItemType.EQUIPMENT && <span className="text-[10px] bg-blue-900 text-white px-1 rounded">Equipamento</span>}
-                          </div>
-                          <div className="flex gap-2">
-                            <button onClick={() => approveReservation(res.id)} className="bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-2 rounded">Aceitar (Creditar R$ {estimatedReturn.toFixed(2)})</button>
-                            <button onClick={() => rejectReservation(res.id)} className="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-2 rounded">Recusar</button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {myActiveReservations.length > 0 && (
-                   <>
-                    <h3 className="text-sm font-bold text-gray-400 mb-2">Suas Reservas Ativas (Vendedor)</h3>
-                    <div className="space-y-3 mb-6">
-                      {myActiveReservations.map(res => {
-                        const listing = listings.find(l => l.id === res.listingId);
-                        const buyer = users.find(u => u.id === res.buyerId);
-                        return (
-                          <div key={res.id} className="bg-gray-800 p-4 rounded border border-gray-700 opacity-90 flex justify-between items-center">
-                             <div>
-                               <p className="text-white font-bold">{listing?.catalogItem.title}</p>
-                               <p className="text-xs text-gray-400">Reservado para: {buyer?.name}</p>
-                               <p className="text-xs text-vinyl-accent">Expira em: {new Date(res.expiresAt!).toLocaleDateString()}</p>
-                             </div>
-                             <button 
-                               onClick={() => cancelReservation(res.id)}
-                               className="bg-red-900/50 hover:bg-red-800 text-red-200 border border-red-800 text-xs px-3 py-2 rounded transition"
-                             >
-                               Cancelar Reserva
-                             </button>
-                          </div>
-                        )
-                      })}
+          <div className="space-y-8">
+            <h3 className="text-white font-bold">Solicitações Recebidas</h3>
+            {myIncomingReservations.map(res => {
+                const l = listings.find(listing => listing.id === res.listingId);
+                return (
+                  <div key={res.id} className="bg-gray-800 p-4 rounded border border-gray-700 flex justify-between items-center">
+                    <div><p className="text-white font-bold">{l?.catalogItem.title}</p><p className="text-xs text-gray-400">De: {users.find(u => u.id === res.buyerId)?.nickname}</p></div>
+                    <div className="flex gap-2">
+                      {l && <button onClick={() => handleOpenChat(l, 'BUYER')} className="text-xs border border-blue-500 text-blue-400 px-2 py-1 rounded">Chat</button>}
+                      <button onClick={() => approveReservation(res.id)} className="bg-green-600 text-white text-xs px-2 py-1 rounded">Aceitar</button>
                     </div>
-                   </>
-                )}
-              </div>
-            )}
-
-            {/* Buyer Section */}
-            <div>
-              <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">Minhas Reservas</h3>
-              {myRequestedReservations.length === 0 ? (
-                <p className="text-gray-500 text-sm">Você não tem reservas.</p>
-              ) : (
-                <div className="space-y-4">
-                  {myRequestedReservations.map(res => {
-                    const listing = listings.find(l => l.id === res.listingId);
-                    const isEquipment = listing?.catalogItem.itemType === ItemType.EQUIPMENT;
-                    const extensionCost = isEquipment ? "R$ 5,00" : "R$ 1,50";
-
-                    return (
-                      <div key={res.id} className="bg-gray-800 p-4 rounded border border-gray-700 flex flex-col sm:flex-row gap-4 justify-between items-center">
-                         <div className="flex gap-4 items-center">
-                           <img src={listing?.catalogItem.coverUrl} className="w-16 h-16 object-cover rounded" />
-                           <div>
-                              <h4 className="font-bold text-white">{listing?.catalogItem.title}</h4>
-                              <p className="text-xs text-gray-400">Status: 
-                                <span className={
-                                  res.status === 'APROVADA' ? 'text-green-400 ml-1' : 
-                                  res.status === 'CANCELADA' ? 'text-red-400 ml-1' :
-                                  res.status === 'EXPIRADA' ? 'text-gray-400 ml-1' :
-                                  'text-yellow-400 ml-1'
-                                }>
-                                  {res.status}
-                                </span>
-                              </p>
-                              {res.status === 'APROVADA' && (
-                                <p className="text-xs text-gray-400">Expira em: {new Date(res.expiresAt!).toLocaleDateString()} ({res.days} dias totais)</p>
-                              )}
-                              {res.status === 'CANCELADA' && <p className="text-xs text-red-300">Cancelada pelo vendedor.</p>}
-                           </div>
-                         </div>
-                         {res.status === 'APROVADA' && (
-                           <div className="flex gap-2">
-                              <button 
-                                onClick={() => handleExtend(res, isEquipment)}
-                                className="border border-purple-500 text-purple-400 hover:bg-purple-900/30 text-xs px-3 py-2 rounded"
-                              >
-                                + Estender ({extensionCost}/dia)
-                              </button>
-                              <Link to={`/listing/${listing?.id}`} className="bg-vinyl-accent text-black font-bold text-xs px-3 py-2 rounded hover:bg-yellow-600">
-                                Comprar Agora
-                              </Link>
-                           </div>
-                         )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
+                  </div>
+                )
+            })}
           </div>
         )}
-
-        {/* Reviews View */}
-        {activeTab === 'REVIEWS' && (
-          <div className="space-y-4 animate-[fadeIn_0.3s]">
-            <h2 className="text-xl font-bold text-white mb-4">O que dizem sobre você</h2>
-            {myReviews.length === 0 ? (
-              <p className="text-gray-500">Nenhuma avaliação recebida ainda.</p>
-            ) : (
-               <div className="grid grid-cols-1 gap-4">
-                 {myReviews.map(review => {
-                   const reviewer = users.find(u => u.id === review.fromUserId);
-                   return (
-                     <div key={review.id} className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                        <div className="flex justify-between items-start mb-2">
-                           <div>
-                              <p className="text-white font-bold">{reviewer?.name || "Usuário"}</p>
-                              <p className="text-xs text-gray-500">{review.type === 'AVALIACAO_VENDEDOR' ? 'Comprou de você' : 'Vendeu para você'}</p>
-                           </div>
-                           <div className="flex text-yellow-400 text-lg">
-                             {Array.from({length: 5}).map((_, i) => (
-                               <span key={i}>{i < review.rating ? '★' : '☆'}</span>
-                             ))}
-                           </div>
-                        </div>
-                        <p className="text-gray-300 italic">"{review.comment}"</p>
-                        <p className="text-right text-xs text-gray-600 mt-2">{new Date(review.createdAt).toLocaleDateString()}</p>
-                     </div>
-                   );
-                 })}
-               </div>
-            )}
-          </div>
-        )}
-
       </div>
     </div>
   );

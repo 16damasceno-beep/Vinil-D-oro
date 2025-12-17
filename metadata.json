@@ -1,7 +1,5 @@
 {
   "name": "Vinil D'oro",
-  "description": "Grupo de Venda de Vinis Online",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "description": "Grupo de Venda de Vinis e Laser Discs Online com Chat de Negociação",
+  "requestFramePermissions": []
 }

@@ -21,16 +21,22 @@ const mapGenre = (styles?: string[], genres?: string[]): Genre => {
 
 // Helper to determine ItemType from Discogs format
 const mapFormatToItemType = (formats?: string[]): ItemType => {
-  if (!formats) return ItemType.VINYL;
+  if (!formats) return ItemType.LP; // Default to LP if unknown
   const formatString = formats.join(' ').toLowerCase();
 
   if (formatString.includes('cd')) return ItemType.CD;
   if (formatString.includes('cassette') || formatString.includes('tape')) return ItemType.K7;
-  if (formatString.includes('7"')) return ItemType.SINGLE_7;
-  if (formatString.includes('12"')) return ItemType.SINGLE_12;
-  if (formatString.includes('lp')) return ItemType.LP;
+  if (formatString.includes('laserdisc') || formatString.includes('ld')) return ItemType.LD;
   
-  return ItemType.VINYL;
+  // Vinyl logic
+  if (formatString.includes('7"')) return ItemType.SINGLE;
+  if (formatString.includes('lp') || formatString.includes('album')) return ItemType.LP;
+  if (formatString.includes('12"')) return ItemType.TWELVE_INCH;
+  
+  // Fallback for generic vinyl
+  if (formatString.includes('vinyl')) return ItemType.LP;
+  
+  return ItemType.LP;
 };
 
 export const searchDiscogs = async (query: string, token: string): Promise<CatalogItem[]> => {

@@ -25,11 +25,11 @@ export enum Genre {
 }
 
 export enum ItemType {
-  VINYL = 'Vinil',
+  LD = 'Laser Disc (LD)',
+  LP = 'LP (Álbum)',
+  TWELVE_INCH = '12" (Maxi/Single)',
+  SINGLE = '7" (Single)',
   K7 = 'K7',
-  SINGLE_12 = '12" Single',
-  SINGLE_7 = '7" Single',
-  LP = 'LP',
   CD = 'CD',
   SERATO = 'Serato',
   EQUIPMENT = 'Equipamento'
@@ -44,13 +44,22 @@ export interface AppNotification {
   message: string;
   read: boolean;
   createdAt: string;
-  // New fields for Actionable Notifications
-  type?: 'INFO' | 'RESERVATION_REQUEST' | 'SALE_ALERT';
+  type?: 'INFO' | 'RESERVATION_REQUEST' | 'SALE_ALERT' | 'CHAT_MESSAGE';
   metadata?: {
     reservationId?: string;
     listingId?: string;
-    actionUrl?: string; // Link simulado
+    actionUrl?: string;
   };
+}
+
+export interface ChatMessage {
+  id: string;
+  listingId: string;
+  senderId: string;
+  receiverId: string;
+  text: string;
+  createdAt: string;
+  read: boolean;
 }
 
 export interface BankInfo {
@@ -71,11 +80,11 @@ export interface PaymentMethod {
 
 export interface User {
   id: string;
-  name: string;      // Nome Completo (Privado até compra)
-  nickname: string;  // Apelido / Nome da Loja (Público)
+  name: string;      
+  nickname: string;  
   email: string;
   password?: string;
-  cpf: string;       // CPF ou CNPJ
+  cpf: string;       
   address: string;
   phone: string;
   role: UserRole;
@@ -88,21 +97,20 @@ export interface User {
   sellerReviewCount: number;
   buyerRating: number;
   buyerReviewCount: number;
-  // Verification Fields
   isVerified?: boolean;
   verificationToken?: string;
 }
 
 export interface Track {
-  position: string; // e.g., "A1", "B1", "1", "2"
+  position: string; 
   title: string;
   duration?: string;
 }
 
 export interface CatalogItem {
   id: string;
-  artist: string; // Para Equipamentos, serve como MARCA
-  title: string;  // Para Equipamentos, serve como MODELO
+  artist: string; 
+  title: string;  
   genre: Genre;
   itemType: ItemType; 
   coverUrl: string;
@@ -111,8 +119,8 @@ export interface CatalogItem {
   format?: string;
   label?: string;
   discogsId?: number;
-  voltage?: string; // Novo campo: 110v, 220v, Bivolt
-  tracks?: Track[]; // Lista de faixas
+  voltage?: string; 
+  tracks?: Track[]; 
 }
 
 export type ListingStatus = 'DISPONÍVEL' | 'RESERVADO' | 'AGUARDANDO_ENVIO' | 'ENVIADO' | 'CONCLUÍDO' | 'VENDIDO_FORA';
@@ -167,8 +175,8 @@ export interface Reservation {
 export interface EnrichedListing extends Listing {
   catalogItem: CatalogItem;
   sellerName: string;
-  sellerDocument?: string; // Para passar o CPF/CNPJ mascarado
+  sellerDocument?: string; 
   buyerName?: string;
-  buyerDocument?: string; // Para passar o CPF/CNPJ mascarado
+  buyerDocument?: string; 
   activeReservation?: Reservation;
 }
