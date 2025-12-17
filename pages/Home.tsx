@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { ItemType } from '../types';
 
 export const Home: React.FC = () => {
-  const { getEnrichedListings, currentUser, toggleFavorite, wantRequests } = useStore();
+  const { getEnrichedListings, currentUser, toggleFavorite, wantRequests, users } = useStore();
   
   // Get and Filter Listings
   const allActiveListings = getEnrichedListings()
@@ -18,6 +18,11 @@ export const Home: React.FC = () => {
 
   // Latest Want Requests (Procuro Por)
   const latestWants = wantRequests.slice(0, 4);
+  
+  // Featured Users (Sellers)
+  const topSellers = users
+    .filter(u => u.sellerReviewCount > 0 || u.role !== 'COMPRADOR')
+    .slice(0, 6);
 
   const handleFavoriteClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -47,7 +52,7 @@ export const Home: React.FC = () => {
           <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.catalogItem.artist}</p>
           <div className="mt-3 flex justify-between items-center">
             <span className="text-vinyl-accent font-bold text-base">R$ {item.price.toFixed(2)}</span>
-            <span className="text-[9px] text-gray-500 uppercase font-bold">{item.catalogItem.itemType}</span>
+            <span className="text-[9px] text-gray-500 uppercase font-bold">{item.catalogItem.itemType.split(' ')[0]}</span>
           </div>
         </div>
 
@@ -156,17 +161,46 @@ export const Home: React.FC = () => {
           </div>
         </section>
 
-        {/* Super Lotes Categorized */}
+        {/* Featured Users Section */}
+        <section className="animate-[fadeIn_0.5s]">
+          <div className="flex justify-between items-end mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">👥</span> Nossa Comunidade
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">Conheça os colecionadores e lojas que fazem o Vinil D'oro acontecer.</p>
+            </div>
+          </div>
+          <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
+             {topSellers.map(u => (
+               <div key={u.id} className="flex-shrink-0 w-40 bg-gray-900 border border-gray-800 rounded-2xl p-5 text-center hover:border-vinyl-accent transition group shadow-lg">
+                  <div className="w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full mx-auto mb-3 flex items-center justify-center text-xl font-bold text-vinyl-accent border-2 border-gray-800 group-hover:scale-110 transition">
+                     {u.nickname.charAt(0)}
+                  </div>
+                  <h4 className="text-white font-bold text-xs truncate mb-1">{u.nickname}</h4>
+                  <div className="flex justify-center items-center gap-1">
+                     <span className="text-yellow-500 text-[10px]">★</span>
+                     <span className="text-[10px] text-gray-400">{u.sellerRating > 0 ? u.sellerRating.toFixed(1) : 'S/A'}</span>
+                  </div>
+                  <div className="mt-3">
+                     <span className="text-[8px] bg-gray-800 text-gray-500 px-2 py-0.5 rounded-full border border-gray-700 uppercase font-bold">{u.role}</span>
+                  </div>
+               </div>
+             ))}
+          </div>
+        </section>
+
+        {/* Super Lotes (Identical to Catalog) */}
         {lotListings.length > 0 && (
           <section>
             <div className="flex justify-between items-end mb-8">
               <div>
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🎁</span> Super Lotes
+                  <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🎁</span> Super Lotes Promocionais
                 </h2>
-                <p className="text-gray-400 text-sm mt-1">Pacotes selecionados com descontos especiais para sua coleção.</p>
+                <p className="text-gray-400 text-sm mt-1">Pacotes selecionados com descontos exclusivos para colecionadores.</p>
               </div>
-              <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Mais</Link>
+              <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Todos</Link>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
               {lotListings.map(l => renderListingCard(l))}
@@ -174,14 +208,14 @@ export const Home: React.FC = () => {
           </section>
         )}
 
-        {/* Media Categorized */}
+        {/* Mídias & Colecionáveis (Identical to Catalog) */}
         <section>
           <div className="flex justify-between items-end mb-8">
             <div>
               <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                 <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">💿</span> Mídias & Colecionáveis
               </h2>
-              <p className="text-gray-400 text-sm mt-1">Vinis, CDs, K7s e Laser Discs recém-chegados à loja.</p>
+              <p className="text-gray-400 text-sm mt-1">Vinis, CDs, K7s e Laser Discs recém-adicionados.</p>
             </div>
             <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ir para Loja</Link>
           </div>
@@ -190,7 +224,7 @@ export const Home: React.FC = () => {
           </div>
         </section>
 
-        {/* Equipment Categorized */}
+        {/* Equipamentos (Identical to Catalog) */}
         {equipmentListings.length > 0 && (
           <section>
             <div className="flex justify-between items-end mb-8">
@@ -198,7 +232,7 @@ export const Home: React.FC = () => {
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                   <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🎛️</span> Equipamentos de Som
                 </h2>
-                <p className="text-gray-400 text-sm mt-1">Aparelhos revisados, mixers e acessórios para o seu setup.</p>
+                <p className="text-gray-400 text-sm mt-1">Aparelhos revisados e acessórios de alta fidelidade.</p>
               </div>
               <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Todos</Link>
             </div>
