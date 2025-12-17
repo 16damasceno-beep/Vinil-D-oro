@@ -1,12 +1,12 @@
 
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { useStore } from '../store';
-import { CatalogItem, Genre, VinylCondition, Listing, ItemType, ProductCondition, Track } from '../types';
-import { getAlbumDetails, getEquipmentDetails } from '../services/geminiService';
-import { searchDiscogs, getDiscogsReleaseDetails } from '../services/discogsService';
+import { useStore } from '../store.tsx';
+import { CatalogItem, Genre, VinylCondition, Listing, ItemType, ProductCondition, Track } from '../types.ts';
+import { getAlbumDetails, getEquipmentDetails } from '../services/geminiService.ts';
+import { searchDiscogs, getDiscogsReleaseDetails } from '../services/discogsService.ts';
 import { useNavigate } from 'react-router-dom';
-import { DiscogsTokenManager } from '../components/DiscogsTokenManager';
+import { DiscogsTokenManager } from '../components/DiscogsTokenManager.tsx';
 
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -60,9 +60,6 @@ export const SellVinyl: React.FC = () => {
     return <div className="p-8 text-center text-white">Por favor, faça login para vender.</div>;
   }
 
-  const isEquipment = manualForm.itemType === ItemType.EQUIPMENT;
-  const isFeltro = manualForm.itemType === ItemType.FELTRO;
-
   const handleSearch = async (e?: React.FormEvent) => {
     if(e) e.preventDefault();
     if (!searchTerm) return;
@@ -96,6 +93,7 @@ export const SellVinyl: React.FC = () => {
     let tracks = item.tracks || [];
     let year = item.year ? item.year.toString() : '';
     let label = item.label || '';
+    let currentItemType = item.itemType || ItemType.LP;
     const discogsToken = localStorage.getItem('discogs_token') || '';
 
     if (item.id.startsWith('discogs-') && discogsToken) {
@@ -116,7 +114,7 @@ export const SellVinyl: React.FC = () => {
       artist: item.artist,
       title: item.title,
       genre: item.genre,
-      itemType: item.itemType,
+      itemType: currentItemType,
       year: year,
       description: item.description || '',
       label: label,
@@ -140,7 +138,7 @@ export const SellVinyl: React.FC = () => {
       ...manualForm,
       year: parseInt(manualForm.year) || 0,
       coverUrl: finalCoverUrl,
-      format: manualForm.itemType,
+      format: manualForm.itemType, // Use the itemType as the format
       tracks: manualForm.tracks.filter(t => t.title)
     };
     addToCatalog(newItem);
@@ -219,19 +217,60 @@ export const SellVinyl: React.FC = () => {
                         ) : <span className="text-2xl text-gray-600">+</span>}
                         <input type="file" accept="image/*" onChange={e => {setManualCoverFile(e.target.files ? e.target.files[0] : null); setManualForm(prev => ({ ...prev, coverUrl: '' }));}} className="absolute inset-0 opacity-0 cursor-pointer" />
                      </div>
+                     <p className="text-[10px] text-center text-gray-500 uppercase font-bold">Imagem de Capa</p>
                    </div>
                    <div className="flex-1 space-y-3 w-full">
+                      {/* Row 1: Artist & Title */}
                       <div className="grid grid-cols-2 gap-3">
-                        <input type="text" placeholder="Artista" required className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm" value={manualForm.artist} onChange={e => setManualForm({...manualForm, artist: e.target.value})} />
-                        <input type="text" placeholder="Título" required className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm" value={manualForm.title} onChange={e => setManualForm({...manualForm, title: e.target.value})} />
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Artista / Banda</label>
+                          <input type="text" placeholder="Ex: Pink Floyd" required className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none" value={manualForm.artist} onChange={e => setManualForm({...manualForm, artist: e.target.value})} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Título da Obra</label>
+                          <input type="text" placeholder="Ex: The Dark Side..." required className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none" value={manualForm.title} onChange={e => setManualForm({...manualForm, title: e.target.value})} />
+                        </div>
                       </div>
+                      
+                      {/* Row 2: Year & Genre */}
                       <div className="grid grid-cols-2 gap-3">
-                        <input type="number" placeholder="Ano" required className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm" value={manualForm.year} onChange={e => setManualForm({...manualForm, year: e.target.value})} />
-                        <select className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm" value={manualForm.genre} onChange={e => setManualForm({...manualForm, genre: e.target.value as Genre})}>
-                          {Object.values(Genre).map(g => <option key={g} value={g}>{g}</option>)}
-                        </select>
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Ano de Lançamento</label>
+                          <input type="number" placeholder="Ex: 1973" required className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none" value={manualForm.year} onChange={e => setManualForm({...manualForm, year: e.target.value})} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Gênero Principal</label>
+                          <select className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none" value={manualForm.genre} onChange={e => setManualForm({...manualForm, genre: e.target.value as Genre})}>
+                            {Object.values(Genre).map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                        </div>
                       </div>
-                      <textarea placeholder="Descrição" className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded text-sm h-24" value={manualForm.description} onChange={e => setManualForm({...manualForm, description: e.target.value})} />
+
+                      {/* Row 3: Item Type (FORMAT) & Label */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Tipo de Item (Formato)</label>
+                          <select className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none font-bold text-vinyl-accent" value={manualForm.itemType} onChange={e => setManualForm({...manualForm, itemType: e.target.value as ItemType})}>
+                            {Object.values(ItemType).map(it => <option key={it} value={it}>{it}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Selo / Gravadora</label>
+                          <input type="text" placeholder="Ex: EMI, Harvest..." className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none" value={manualForm.label} onChange={e => setManualForm({...manualForm, label: e.target.value})} />
+                        </div>
+                      </div>
+
+                      {manualForm.itemType === ItemType.EQUIPMENT && (
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Voltagem</label>
+                          <input type="text" placeholder="Ex: 110V, 220V, Bivolt" className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm focus:border-vinyl-accent outline-none" value={manualForm.voltage} onChange={e => setManualForm({...manualForm, voltage: e.target.value})} />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Descrição Curta</label>
+                        <textarea placeholder="Fale um pouco sobre a edição, curiosidades ou ficha técnica básica..." className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded text-sm h-24 focus:border-vinyl-accent outline-none" value={manualForm.description} onChange={e => setManualForm({...manualForm, description: e.target.value})} />
+                      </div>
                    </div>
                 </div>
 
@@ -240,7 +279,7 @@ export const SellVinyl: React.FC = () => {
                   <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-800">
                     <h3 className="text-white font-bold text-sm mb-4 border-b border-gray-700 pb-2 flex justify-between items-center">
                        <span>Lista de Faixas ({manualForm.tracks.length})</span>
-                       <span className="text-[10px] text-vinyl-accent">Puxado Automaticamente</span>
+                       <span className="text-[10px] text-vinyl-accent">Informações Puxadas</span>
                     </h3>
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                        {manualForm.tracks.map((track, idx) => (
@@ -282,32 +321,39 @@ export const SellVinyl: React.FC = () => {
                <div className="min-w-0 flex-1">
                  <p className="font-bold text-white truncate">{selectedCatalogItem.title}</p>
                  <p className="text-gray-400 text-xs truncate">{selectedCatalogItem.artist}</p>
+                 <p className="text-vinyl-accent text-[10px] font-bold uppercase">{selectedCatalogItem.itemType}</p>
                </div>
              </div>
 
              <div className="grid grid-cols-2 gap-4">
-                <input type="number" step="0.01" required value={price} onChange={e => setPrice(e.target.value)} placeholder="Preço R$" className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none" />
-                <select value={condition} onChange={(e) => setCondition(e.target.value as VinylCondition)} className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none">
-                  {Object.values(VinylCondition).map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <div>
+                  <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Preço de Venda (R$)</label>
+                  <input type="number" step="0.01" required value={price} onChange={e => setPrice(e.target.value)} placeholder="0,00" className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 uppercase font-bold mb-1 ml-1 block">Estado Físico (Avaliação)</label>
+                  <select value={condition} onChange={(e) => setCondition(e.target.value as VinylCondition)} className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded focus:border-vinyl-accent outline-none">
+                    {Object.values(VinylCondition).map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
              </div>
 
              <div className="bg-gray-800 p-4 rounded border border-gray-700">
-                <p className="text-sm font-bold text-white mb-2">Fotos Reais (Máx 10)</p>
+                <p className="text-sm font-bold text-white mb-2">Fotos Reais do Produto (Máx 10)</p>
                 <input type="file" multiple accept="image/*" onChange={async (e) => {
                   if (e.target.files) {
-                    // Added explicit type annotation to fix 'unknown' map error
                     const filesArray: File[] = Array.from(e.target.files).slice(0, 10);
                     const base64s = await Promise.all(filesArray.map((f: File) => fileToBase64(f)));
                     setPreviewImages(base64s);
                   }
-                }} className="text-xs text-gray-400 w-full" />
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {previewImages.map((src, i) => <img key={i} src={src} className="w-12 h-12 object-cover rounded border border-gray-700" />)}
+                }} className="text-xs text-gray-400 w-full mb-4" />
+                <div className="flex flex-wrap gap-2">
+                  {previewImages.map((src, i) => <img key={i} src={src} className="w-16 h-16 object-cover rounded border border-gray-700" />)}
                 </div>
+                <p className="text-[10px] text-gray-500 mt-2">Fotos reais ajudam na confiança do comprador e evitam devoluções.</p>
              </div>
 
-             <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded shadow-xl">Publicar Oferta</button>
+             <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded shadow-xl">Publicar Oferta no Catálogo</button>
           </form>
         )}
       </div>

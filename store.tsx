@@ -40,6 +40,7 @@ interface StoreContextType {
   depositFunds: (amount: number) => void;
   requestPasswordReset: (email: string) => boolean;
   completePasswordReset: (email: string, newPassword: string) => void;
+  changePassword: (newPassword: string) => void;
   deleteUser: (userId: string) => void;
   deleteListing: (listingId: string) => void;
   updateUser: (updatedUser: User) => void; 
@@ -266,6 +267,14 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setUsers(prev => prev.map(u => u.email === email ? updatedUser : u));
       dbUpsert('users', updatedUser);
     }
+  };
+
+  const changePassword = (newPassword: string) => {
+    if (!currentUser) return;
+    const updatedUser = { ...currentUser, password: newPassword };
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
+    setCurrentUser(updatedUser);
+    dbUpsert('users', updatedUser);
   };
 
   const addToCatalog = (item: CatalogItem) => {
@@ -524,7 +533,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       markNotificationsAsRead, getEnrichedListings, getUserReviews, requestReservation,
       approveReservation, rejectReservation, cancelReservation, extendReservation,
       updateUserFinancials, depositFunds, deleteUser, deleteListing, updateUser, adminCreateUser, sendMessage,
-      toggleListingAvailability, addWantRequest, respondToWantRequest, deleteWantRequest
+      toggleListingAvailability, addWantRequest, respondToWantRequest, deleteWantRequest, changePassword
     }}>
       {children}
     </StoreContext.Provider>

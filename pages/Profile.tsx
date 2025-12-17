@@ -12,16 +12,20 @@ export const Profile: React.FC = () => {
     currentUser, getEnrichedListings, markAsShipped, confirmReceipt, markAsSoldOutside, 
     addReview, getUserReviews, users, reservations, approveReservation, rejectReservation, 
     cancelReservation, extendReservation, updateUserFinancials, depositFunds, deleteListing, 
-    updateUser, adminCreateUser, catalog, toggleListingAvailability, wantRequests
+    updateUser, adminCreateUser, catalog, toggleListingAvailability, wantRequests, changePassword
   } = useStore();
   
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'SALES' | 'PURCHASES' | 'RESERVATIONS' | 'OPPORTUNITIES' | 'FINANCIAL'>('SALES');
+  const [activeTab, setActiveTab] = useState<'SALES' | 'PURCHASES' | 'RESERVATIONS' | 'OPPORTUNITIES' | 'FINANCIAL' | 'SETTINGS'>('SALES');
   const [trackingInput, setTrackingInput] = useState<{ [key: string]: string }>({});
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<{id: string, name: string, listingId: string, type: 'BUYER' | 'SELLER'} | null>(null);
   const [receiptData, setReceiptData] = useState<{listing: EnrichedListing, role: 'BUYER' | 'SELLER'} | null>(null);
   const [chatData, setChatData] = useState<{listing: EnrichedListing, receiverId: string, receiverName: string} | null>(null);
+
+  // Password Change State
+  const [pwdForm, setPwdForm] = useState({ current: '', new: '', confirm: '' });
+  const [pwdStatus, setPwdStatus] = useState<{ type: 'SUCCESS' | 'ERROR', message: string } | null>(null);
 
   if (!currentUser) { navigate('/login'); return null; }
 
@@ -30,8 +34,37 @@ export const Profile: React.FC = () => {
   const myPurchases = listings.filter(l => l.buyerId === currentUser.id);
   const myIncomingReservations = reservations.filter(r => r.sellerId === currentUser.id && r.status === 'PENDENTE');
   
-  // Opportunities: WantRequests from other users
   const activeOpportunities = wantRequests.filter(req => req.buyerId !== currentUser.id && req.status === 'ABERTO');
+
+  const validatePassword = (pwd: string) => {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(pwd);
+    const hasNumber = /[0-9]/.test(pwd);
+    return pwd.length >= minLength && hasUpperCase && hasNumber;
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdStatus(null);
+
+    // Basic Checks
+    if (pwdForm.current !== currentUser.password) {
+      return setPwdStatus({ type: 'ERROR', message: 'Senha atual incorreta.' });
+    }
+    if (pwdForm.new !== pwdForm.confirm) {
+      return setPwdStatus({ type: 'ERROR', message: 'A nova senha e a confirmação não coincidem.' });
+    }
+    if (!validatePassword(pwdForm.new)) {
+      return setPwdStatus({ type: 'ERROR', message: 'A nova senha deve ter no mínimo 8 caracteres, uma maiúscula e um número.' });
+    }
+    if (pwdForm.new === pwdForm.current) {
+        return setPwdStatus({ type: 'ERROR', message: 'A nova senha deve ser diferente da atual.' });
+    }
+
+    changePassword(pwdForm.new);
+    setPwdStatus({ type: 'SUCCESS', message: 'Senha alterada com sucesso!' });
+    setPwdForm({ current: '', new: '', confirm: '' });
+  };
 
   const handleShip = (id: string) => {
     const code = trackingInput[id];
@@ -120,15 +153,79 @@ export const Profile: React.FC = () => {
         </div>
 
         <div className="flex border-b border-gray-700 mb-8 overflow-x-auto scrollbar-hide">
-          <button onClick={() => setActiveTab('SALES')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'SALES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Minhas Vendas ({myListings.length})</button>
-          <button onClick={() => setActiveTab('PURCHASES')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'PURCHASES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Minhas Compras ({myPurchases.length})</button>
+          <button onClick={() => setActiveTab('SALES')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'SALES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Vendas ({myListings.length})</button>
+          <button onClick={() => setActiveTab('PURCHASES')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'PURCHASES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Compras ({myPurchases.length})</button>
           <button onClick={() => setActiveTab('RESERVATIONS')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'RESERVATIONS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Reservas ({myIncomingReservations.length})</button>
-          <button onClick={() => setActiveTab('OPPORTUNITIES')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'OPPORTUNITIES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>
-             Oportunidades
-             {activeOpportunities.length > 0 && <span className="ml-2 bg-vinyl-accent text-black px-1.5 rounded-full text-[9px]">{activeOpportunities.length}</span>}
-          </button>
+          <button onClick={() => setActiveTab('OPPORTUNITIES')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'OPPORTUNITIES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Oportunidades</button>
           <button onClick={() => setActiveTab('FINANCIAL')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'FINANCIAL' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Financeiro</button>
+          <button onClick={() => setActiveTab('SETTINGS')} className={`px-6 py-3 font-bold text-xs uppercase tracking-widest whitespace-nowrap transition-all ${activeTab === 'SETTINGS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Configurações</button>
         </div>
+
+        {activeTab === 'SETTINGS' && (
+           <div className="max-w-lg mx-auto animate-[fadeIn_0.3s] space-y-8">
+              <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl">
+                 <h3 className="text-white font-bold text-lg mb-6 flex items-center gap-2">
+                    <span className="text-vinyl-accent">🔒</span> Segurança da Conta
+                 </h3>
+                 
+                 <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                    {pwdStatus && (
+                        <div className={`p-3 rounded-lg text-xs font-bold border ${pwdStatus.type === 'SUCCESS' ? 'bg-green-900/20 border-green-500 text-green-400' : 'bg-red-900/20 border-red-500 text-red-400'}`}>
+                           {pwdStatus.message}
+                        </div>
+                    )}
+                    
+                    <div>
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 ml-1">Senha Atual</label>
+                        <input 
+                           type="password" 
+                           required 
+                           className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-vinyl-accent outline-none transition" 
+                           value={pwdForm.current}
+                           onChange={e => setPwdForm({...pwdForm, current: e.target.value})}
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 ml-1">Nova Senha</label>
+                        <input 
+                           type="password" 
+                           required 
+                           className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-vinyl-accent outline-none transition" 
+                           value={pwdForm.new}
+                           onChange={e => setPwdForm({...pwdForm, new: e.target.value})}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 ml-1">Confirmar Nova Senha</label>
+                        <input 
+                           type="password" 
+                           required 
+                           className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-vinyl-accent outline-none transition" 
+                           value={pwdForm.confirm}
+                           onChange={e => setPwdForm({...pwdForm, confirm: e.target.value})}
+                        />
+                    </div>
+
+                    <button 
+                       type="submit" 
+                       className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded-xl shadow-lg shadow-yellow-900/10 transition transform active:scale-95"
+                    >
+                       Atualizar Senha
+                    </button>
+                    
+                    <p className="text-[10px] text-gray-500 text-center mt-2 italic">A nova senha deve ter no mínimo 8 dígitos, uma letra maiúscula e um número.</p>
+                 </form>
+              </div>
+
+              <div className="bg-gray-900/50 p-6 rounded-2xl border border-dashed border-gray-800 text-center">
+                 <h4 className="text-gray-400 font-bold text-sm mb-2">Informações da Conta</h4>
+                 <p className="text-xs text-gray-500">Registrado desde: {new Date(parseInt(currentUser.id.split('-')[1])).toLocaleDateString('pt-BR')}</p>
+                 <p className="text-xs text-gray-500">ID de Usuário: {currentUser.id}</p>
+              </div>
+           </div>
+        )}
 
         {activeTab === 'OPPORTUNITIES' && (
            <div className="space-y-6 animate-[fadeIn_0.3s]">
@@ -165,12 +262,11 @@ export const Profile: React.FC = () => {
            </div>
         )}
 
-        {/* FINANCIAL TAB Content (Added briefly for completeness) */}
         {activeTab === 'FINANCIAL' && (
            <div className="animate-[fadeIn_0.3s] space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                    <h3 className="text-white font-bold mb-4">Dados para Saque (Pix)</h3>
+                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                    <h3 className="text-white font-bold mb-4 flex items-center gap-2"><span className="text-vinyl-accent">🏦</span> Dados para Saque (Pix)</h3>
                     {currentUser.bankInfo ? (
                       <div className="space-y-2 text-sm">
                         <p className="text-gray-400">Banco: <span className="text-white">{currentUser.bankInfo.bankName}</span></p>
@@ -178,14 +274,17 @@ export const Profile: React.FC = () => {
                         <button onClick={() => alert("Função de edição em breve")} className="text-vinyl-accent text-xs mt-2 hover:underline">Editar Dados</button>
                       </div>
                     ) : (
-                      <p className="text-gray-500 italic text-sm">Nenhum dado cadastrado.</p>
+                      <div className="text-center py-4">
+                         <p className="text-gray-500 italic text-sm mb-4">Nenhum dado bancário cadastrado.</p>
+                         <button onClick={() => alert("Função de cadastro em breve")} className="bg-gray-700 text-white text-[10px] px-4 py-2 rounded-lg font-bold">Cadastrar Chave Pix</button>
+                      </div>
                     )}
                  </div>
-                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                    <h3 className="text-white font-bold mb-4">Ações Rápidas</h3>
-                    <div className="flex gap-2">
-                       <button onClick={() => depositFunds(50)} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded text-xs transition">Depositar R$ 50</button>
-                       <button onClick={() => alert("Saques processados em até 24h")} className="flex-1 bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-2 rounded text-xs transition">Solicitar Saque</button>
+                 <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                    <h3 className="text-white font-bold mb-4 flex items-center gap-2"><span className="text-vinyl-accent">📈</span> Ações Rápidas</h3>
+                    <div className="flex flex-col gap-3">
+                       <button onClick={() => depositFunds(50)} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl text-xs transition border border-gray-600">Simular Depósito R$ 50</button>
+                       <button onClick={() => alert("Saques processados em até 24h")} className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-yellow-900/10">Solicitar Saque do Saldo</button>
                     </div>
                  </div>
               </div>
@@ -241,7 +340,66 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* Other tabs remain largely the same but ensure they are correctly routed */}
+        {activeTab === 'PURCHASES' && (
+           <div className="space-y-4 animate-[fadeIn_0.3s]">
+              {myPurchases.length === 0 ? (
+                <div className="text-center py-20 text-gray-500 bg-gray-900 rounded-2xl border border-dashed border-gray-700">
+                   <p className="text-lg">Você ainda não comprou nada.</p>
+                   <Link to="/catalog" className="text-vinyl-accent hover:underline mt-2 inline-block">Explorar o Catálogo</Link>
+                </div>
+              ) : (
+                myPurchases.map(l => (
+                  <div key={l.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4">
+                     <img src={l.catalogItem.coverUrl} className="w-16 h-16 object-cover rounded shadow" />
+                     <div className="flex-1">
+                        <div className="flex justify-between">
+                           <h4 className="font-bold text-white">{l.catalogItem.title}</h4>
+                           {renderStatusBadge(l.status)}
+                        </div>
+                        <p className="text-xs text-gray-500">{l.sellerName}</p>
+                        <div className="mt-4 flex gap-2">
+                           {l.status === 'ENVIADO' && (
+                              <button onClick={() => handleConfirmReceipt(l.id)} className="text-[10px] bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold">CONFIRMAR RECEBIMENTO</button>
+                           )}
+                           <button onClick={() => handleOpenChat(l, 'SELLER')} className="text-[10px] bg-gray-700 text-white px-3 py-1.5 rounded-lg font-bold">CHAT VENDEDOR</button>
+                           {l.status === 'CONCLUÍDO' && !l.buyerReviewedSeller && (
+                              <button onClick={() => { setReviewTarget({id: l.sellerId, name: l.sellerName, listingId: l.id, type: 'SELLER'}); setIsReviewModalOpen(true); }} className="text-[10px] bg-vinyl-accent text-black px-3 py-1.5 rounded-lg font-bold">AVALIAR VENDEDOR</button>
+                           )}
+                           <button onClick={() => setReceiptData({listing: l, role: 'BUYER'})} className="text-[10px] border border-gray-600 text-gray-400 px-3 py-1.5 rounded-lg font-bold">VER RECIBO</button>
+                        </div>
+                     </div>
+                  </div>
+                ))
+              )}
+           </div>
+        )}
+
+        {activeTab === 'RESERVATIONS' && (
+           <div className="space-y-4 animate-[fadeIn_0.3s]">
+              {myIncomingReservations.length === 0 ? (
+                <div className="text-center py-20 text-gray-500 bg-gray-900 rounded-2xl border border-dashed border-gray-800">
+                   <p className="text-lg">Sem solicitações de reserva pendentes.</p>
+                </div>
+              ) : (
+                myIncomingReservations.map(res => {
+                  const listing = listings.find(l => l.id === res.listingId);
+                  return (
+                    <div key={res.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 items-center">
+                       <img src={listing?.catalogItem.coverUrl} className="w-12 h-12 object-cover rounded" />
+                       <div className="flex-1 text-center md:text-left">
+                          <p className="text-sm font-bold text-white">{res.buyerId} solicitou reserva de 5 dias</p>
+                          <p className="text-xs text-gray-500">Item: {listing?.catalogItem.title}</p>
+                       </div>
+                       <div className="flex gap-2 w-full md:w-auto">
+                          <button onClick={() => approveReservation(res.id)} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold">APROVAR</button>
+                          <button onClick={() => rejectReservation(res.id)} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold">RECUSAR</button>
+                       </div>
+                    </div>
+                  );
+                })
+              )}
+           </div>
+        )}
       </div>
     </div>
   );
