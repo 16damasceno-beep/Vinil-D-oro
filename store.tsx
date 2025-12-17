@@ -1,7 +1,7 @@
 
 // @ts-nocheck
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType, ChatMessage, WantRequest, WantResponse } from './types.ts';
+import { User, CatalogItem, Listing, Genre, VinylCondition, EnrichedListing, ListingStatus, Review, AppNotification, Reservation, BankInfo, PaymentMethod, ItemType, ChatMessage, WantRequest, WantResponse, Transaction } from './types.ts';
 import { sendSaleNotification, sendReservationRequestNotification, sendReservationDecisionNotification, sendPasswordResetEmail, sendValidationEmail } from './services/notificationService.ts';
 import { supabase, dbUpsert, dbDelete } from './services/supabaseClient.ts';
 
@@ -236,7 +236,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const exists = users.find(u => u.email === newUser.email || u.cpf === newUser.cpf);
     if (exists) { alert("Usuário já existe."); return null; }
     const token = Math.random().toString(36).substring(2, 15);
-    const userWithAuth = { ...newUser, password: "PROVISIONAL-" + Date.now(), isVerified: false, verificationToken: token };
+    const userWithAuth = { ...newUser, password: "PROVISIONAL-" + Date.now(), isVerified: false, verificationToken: token, transactions: [] };
     setUsers([...users, userWithAuth]);
     dbUpsert('users', userWithAuth);
     sendValidationEmail(userWithAuth, token);
@@ -318,13 +318,24 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!currentUser) return;
     const userToUpdate = users.find(u => u.id === currentUser.id);
     if(!userToUpdate) return;
+    
+    const newTransaction: Transaction = {
+      id: `t-dep-${Date.now()}`,
+      type: 'CREDIT',
+      category: 'DEPOSITO',
+      amount,
+      description: 'Depósito em carteira (Simulação)',
+      createdAt: new Date().toISOString()
+    };
+
     const updatedUser = {
         ...userToUpdate,
         walletBalance: userToUpdate.walletBalance + amount,
+        transactions: [newTransaction, ...(userToUpdate.transactions || [])],
         notifications: [{ id: `n-dep-${Date.now()}`, message: `Depósito de R$ ${amount.toFixed(2)} realizado.`, read: false, createdAt: new Date().toISOString() }, ...userToUpdate.notifications]
     };
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
-    setCurrentUser(updatedUser); // Update local state for immediate feedback
+    setCurrentUser(updatedUser);
     dbUpsert('users', updatedUser);
   };
 
@@ -358,17 +369,36 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     let cost = catalogItem.itemType === ItemType.EQUIPMENT ? 40.00 : 10.00;
     let share = catalogItem.itemType === ItemType.EQUIPMENT ? 28.00 : 7.00;
 
+    const resDebit: Transaction = {
+      id: `t-res-d-${Date.now()}`,
+      type: 'DEBIT',
+      category: 'RESERVA',
+      amount: cost,
+      description: `Reserva de 5 dias: ${catalogItem.title}`,
+      listingId: listing.id,
+      createdAt: new Date().toISOString()
+    };
+
+    const resCredit: Transaction = {
+      id: `t-res-c-${Date.now()}`,
+      type: 'CREDIT',
+      category: 'RESERVA',
+      amount: share,
+      description: `Crédito de Reserva: ${catalogItem.title}`,
+      listingId: listing.id,
+      createdAt: new Date().toISOString()
+    };
+
     const expiresAt = new Date(); expiresAt.setDate(expiresAt.getDate() + 5);
     const updatedRes = { ...res, status: 'APROVADA' as const, expiresAt: expiresAt.toISOString() };
     const updatedListing = { ...listing, status: 'RESERVADO' as const };
-    const updatedSeller = { ...seller, walletBalance: seller.walletBalance + share, notifications: [{ id: `n-res-app-${Date.now()}`, message: `Reserva aceita! R$ ${share.toFixed(2)} recebidos.`, read: false, createdAt: new Date().toISOString() }, ...seller.notifications] };
-    const updatedBuyer = { ...buyer, walletBalance: buyer.walletBalance - cost, notifications: [{ id: `n-res-buy-${Date.now()}`, message: `Sua reserva foi aprovada!`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications] };
+    const updatedSeller = { ...seller, walletBalance: seller.walletBalance + share, transactions: [resCredit, ...(seller.transactions || [])], notifications: [{ id: `n-res-app-${Date.now()}`, message: `Reserva aceita! R$ ${share.toFixed(2)} recebidos.`, read: false, createdAt: new Date().toISOString() }, ...seller.notifications] };
+    const updatedBuyer = { ...buyer, walletBalance: buyer.walletBalance - cost, transactions: [resDebit, ...(buyer.transactions || [])], notifications: [{ id: `n-res-buy-${Date.now()}`, message: `Sua reserva foi aprovada!`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications] };
     
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
     setListings(prev => prev.map(l => l.id === res.listingId ? updatedListing : l));
     setUsers(prev => prev.map(u => u.id === seller.id ? updatedSeller : u.id === buyer.id ? updatedBuyer : u));
     
-    // Sync current user if they are buyer or seller
     if (currentUser?.id === seller.id) setCurrentUser(updatedSeller);
     if (currentUser?.id === buyer.id) setCurrentUser(updatedBuyer);
 
@@ -420,12 +450,24 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const dailyRate = catalogItem.itemType === ItemType.EQUIPMENT ? 5.00 : 1.50;
     const totalCost = dailyRate * extraDays;
     if (buyer.walletBalance < totalCost) { alert("Saldo insuficiente."); return; }
+    
+    const extDebit: Transaction = {
+      id: `t-res-ext-${Date.now()}`,
+      type: 'DEBIT',
+      category: 'RESERVA',
+      amount: totalCost,
+      description: `Extensão de reserva: ${catalogItem.title} (+${extraDays} dias)`,
+      listingId: listing.id,
+      createdAt: new Date().toISOString()
+    };
+
     const newExpiresAt = new Date(res.expiresAt);
     newExpiresAt.setDate(newExpiresAt.getDate() + extraDays);
     const updatedRes = { ...res, expiresAt: newExpiresAt.toISOString() };
     const updatedBuyer = { 
         ...buyer, 
         walletBalance: buyer.walletBalance - totalCost,
+        transactions: [extDebit, ...(buyer.transactions || [])],
         notifications: [{ id: `n-res-ext-${Date.now()}`, message: `Reserva estendida.`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications]
     };
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
@@ -439,6 +481,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!currentUser) return;
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
+    const cat = catalog.find(c => c.id === listing.catalogItemId);
 
     const shippingPrice = method === 'SHIPPING' ? (listing.shippingCost || 0) : 0;
     const totalToPay = listing.price + shippingPrice;
@@ -447,10 +490,20 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return alert(`Saldo insuficiente. Você precisa de R$ ${totalToPay.toFixed(2)} em sua carteira para concluir a compra.`);
     }
 
-    // DEDUCT FROM BUYER IMMEDIATELY (Platform Escrow)
+    const buyDebit: Transaction = {
+      id: `t-buy-${Date.now()}`,
+      type: 'DEBIT',
+      category: 'COMPRA',
+      amount: totalToPay,
+      description: `Compra de: ${cat?.title || 'Item'}`,
+      listingId: listing.id,
+      createdAt: new Date().toISOString()
+    };
+
     const updatedBuyer = {
       ...currentUser,
       walletBalance: currentUser.walletBalance - totalToPay,
+      transactions: [buyDebit, ...(currentUser.transactions || [])],
       notifications: [{ id: `n-buy-confirm-${Date.now()}`, message: `Compra de "${listingId}" confirmada. Valor de R$ ${totalToPay.toFixed(2)} reservado para o vendedor.`, read: false, createdAt: new Date().toISOString() }, ...currentUser.notifications]
     };
 
@@ -479,7 +532,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     
     setCurrentUser(updatedBuyer);
 
-    // FINALIZAÇÃO AUTOMÁTICA DO PEDIDO NO "PROCURO POR"
     const associatedResponse = wantResponses.find(res => res.listingId === listingId);
     if (associatedResponse) {
       const associatedRequest = wantRequests.find(req => req.id === associatedResponse.requestId);
@@ -502,26 +554,57 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const confirmReceipt = (id: string) => {
     const l = listings.find(listing => listing.id === id);
     if (!l) return;
+    const cat = catalog.find(c => c.id === l.catalogItemId);
 
-    // FEE LOGIC: Deduct 7% from the item price only. Shipping is fully reimbursed.
     const fee = l.price * 0.07;
     const sellerEarnings = (l.price - fee) + (l.finalShippingCost || 0);
     
+    const sellCredit: Transaction = {
+      id: `t-sell-c-${Date.now()}`,
+      type: 'CREDIT',
+      category: 'VENDA',
+      amount: l.price,
+      description: `Venda Bruta: ${cat?.title || 'Item'}`,
+      listingId: l.id,
+      createdAt: new Date().toISOString()
+    };
+
+    const platformFee: Transaction = {
+      id: `t-fee-${Date.now()}`,
+      type: 'DEBIT',
+      category: 'TAXA_PLATAFORMA',
+      amount: fee,
+      description: `Taxa de Serviço (7%): ${cat?.title || 'Item'}`,
+      listingId: l.id,
+      createdAt: new Date().toISOString()
+    };
+
+    const shippingRefund: Transaction | null = l.finalShippingCost && l.finalShippingCost > 0 ? {
+       id: `t-ship-r-${Date.now()}`,
+       type: 'CREDIT',
+       category: 'VENDA',
+       amount: l.finalShippingCost,
+       description: `Reembolso de Frete: ${cat?.title || 'Item'}`,
+       listingId: l.id,
+       createdAt: new Date().toISOString()
+    } : null;
+
     const updated = { ...l, status: 'CONCLUÍDO' as const };
     setListings(prev => prev.map(listing => listing.id === id ? updated : listing));
     dbUpsert('listings', updated);
 
     const seller = users.find(u => u.id === l.sellerId);
     if(seller) {
+        const newTrans = [sellCredit, platformFee, ...(shippingRefund ? [shippingRefund] : []), ...(seller.transactions || [])];
         const upSeller = { 
           ...seller, 
           walletBalance: seller.walletBalance + sellerEarnings,
+          transactions: newTrans,
           notifications: [{ id: `n-sale-comp-${Date.now()}`, message: `Recebimento confirmado! R$ ${sellerEarnings.toFixed(2)} creditados (Líquido).`, read: false, createdAt: new Date().toISOString() }, ...seller.notifications]
         };
         setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u));
         dbUpsert('users', upSeller);
         
-        // If current user is the seller (e.g. admin checking or someone else), update their state
         if (currentUser?.id === seller.id) setCurrentUser(upSeller);
     }
   };
@@ -592,7 +675,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (currentUser?.id === up.id) setCurrentUser(up);
     dbUpsert('users', up); 
   };
-  const adminCreateUser = (newUser: User) => { setUsers([...users, { ...newUser, isVerified: true }]); dbUpsert('users', { ...newUser, isVerified: true }); };
+  const adminCreateUser = (newUser: User) => { setUsers([...users, { ...newUser, isVerified: true, transactions: [] }]); dbUpsert('users', { ...newUser, isVerified: true, transactions: [] }); };
 
   return (
     <StoreContext.Provider value={{

@@ -82,6 +82,16 @@ export interface PaymentMethod {
   holderName: string;
 }
 
+export interface Transaction {
+  id: string;
+  type: 'DEBIT' | 'CREDIT';
+  category: 'COMPRA' | 'VENDA' | 'RESERVA' | 'DEPOSITO' | 'SAQUE' | 'TAXA_PLATAFORMA';
+  amount: number;
+  description: string;
+  listingId?: string;
+  createdAt: string;
+}
+
 export interface User {
   id: string;
   name: string;      
@@ -95,6 +105,7 @@ export interface User {
   walletBalance: number;
   favorites: string[];
   notifications: AppNotification[];
+  transactions: Transaction[]; // Log financeiro
   bankInfo?: BankInfo;
   savedPaymentMethods: PaymentMethod[];
   sellerRating: number;

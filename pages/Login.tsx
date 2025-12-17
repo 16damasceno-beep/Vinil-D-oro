@@ -73,6 +73,7 @@ export const Login: React.FC = () => {
         return alert("CPF ou CNPJ inválido.");
       }
       
+      // Fix: Added missing 'transactions' property to comply with User interface
       const newUser: User = {
         id: `u-${Date.now()}`,
         email,
@@ -85,6 +86,7 @@ export const Login: React.FC = () => {
         walletBalance: 0,
         favorites: [],
         notifications: [],
+        transactions: [],
         savedPaymentMethods: [], 
         sellerRating: 0,
         sellerReviewCount: 0,
