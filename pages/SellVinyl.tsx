@@ -146,6 +146,28 @@ export const SellVinyl: React.FC = () => {
     setStep(2);
   };
 
+  const addTrack = () => {
+    setManualForm(prev => ({
+      ...prev,
+      tracks: [...prev.tracks, { position: (prev.tracks.length + 1).toString(), title: '', duration: '' }]
+    }));
+  };
+
+  const updateTrack = (index: number, field: keyof Track, value: string) => {
+    setManualForm(prev => {
+      const newTracks = [...prev.tracks];
+      newTracks[index] = { ...newTracks[index], [field]: value };
+      return { ...prev, tracks: newTracks };
+    });
+  };
+
+  const removeTrack = (index: number) => {
+    setManualForm(prev => ({
+      ...prev,
+      tracks: prev.tracks.filter((_, i) => i !== index)
+    }));
+  };
+
   const handleLotSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedListingIds.length < 2) return alert("Selecione pelo menos 2 itens.");
@@ -217,7 +239,7 @@ export const SellVinyl: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleManualCatalogSubmit} className="space-y-4 animate-[fadeIn_0.3s]">
+              <form onSubmit={handleManualCatalogSubmit} className="space-y-8 animate-[fadeIn_0.3s]">
                 <div className="flex flex-col md:flex-row gap-6 items-start border-b border-gray-800 pb-6">
                    <div className="w-full md:w-64 space-y-3">
                      <div className="w-full aspect-square bg-gray-800 border-2 border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden group">
@@ -290,6 +312,33 @@ export const SellVinyl: React.FC = () => {
                    </div>
                 </div>
 
+                {/* EDIÇÃO DE FAIXAS (TRACKLIST) NO FORMULÁRIO MANUAL */}
+                <div className="bg-gray-800/30 p-6 rounded-2xl border border-gray-700">
+                   <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                      <h3 className="text-white font-bold flex items-center gap-2">
+                        <span className="text-vinyl-accent text-xl">📜</span> Faixas / Capítulos
+                      </h3>
+                      <button type="button" onClick={addTrack} className="bg-gray-700 hover:bg-gray-600 text-white text-[10px] font-black px-3 py-1 rounded-lg border border-gray-600 uppercase">
+                         + Adicionar Faixa
+                      </button>
+                   </div>
+                   
+                   {manualForm.tracks.length === 0 ? (
+                     <p className="text-center py-6 text-gray-500 text-xs italic">Nenhuma faixa cadastrada. Use a busca ou adicione manualmente para valorizar seu anúncio.</p>
+                   ) : (
+                     <div className="space-y-2">
+                        {manualForm.tracks.map((track, idx) => (
+                          <div key={idx} className="flex gap-2 items-center animate-[fadeIn_0.2s]">
+                             <input type="text" placeholder="Pos" className="w-12 bg-gray-900 text-white p-2 rounded border border-gray-700 text-xs text-center font-mono" value={track.position} onChange={e => updateTrack(idx, 'position', e.target.value)} />
+                             <input type="text" placeholder="Título da Faixa / Capítulo" className="flex-1 bg-gray-900 text-white p-2 rounded border border-gray-700 text-xs" value={track.title} onChange={e => updateTrack(idx, 'title', e.target.value)} />
+                             <input type="text" placeholder="Duração" className="w-20 bg-gray-900 text-white p-2 rounded border border-gray-700 text-xs text-center" value={track.duration} onChange={e => updateTrack(idx, 'duration', e.target.value)} />
+                             <button type="button" onClick={() => removeTrack(idx)} className="text-red-500 hover:bg-red-900/20 p-2 rounded transition">✕</button>
+                          </div>
+                        ))}
+                     </div>
+                   )}
+                </div>
+
                 <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded shadow-lg transition transform active:scale-95">Continuar para Preço e Fotos</button>
               </form>
             )}
@@ -310,6 +359,7 @@ export const SellVinyl: React.FC = () => {
                  <p className="font-bold text-white truncate">{selectedCatalogItem.title}</p>
                  <p className="text-gray-400 text-xs truncate">{selectedCatalogItem.artist}</p>
                  <p className="text-vinyl-accent text-[10px] font-black uppercase tracking-widest">{selectedCatalogItem.itemType}</p>
+                 <p className="text-gray-500 text-[10px] mt-1 italic">{selectedCatalogItem.tracks?.length || 0} faixas catalogadas</p>
                </div>
              </div>
 

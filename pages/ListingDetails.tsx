@@ -54,7 +54,6 @@ export const ListingDetails: React.FC = () => {
     if (!currentUser) { navigate('/login'); return; }
     if (listing.sellerId === currentUser.id) return alert("Você não pode reservar seu próprio item.");
     
-    // Regra de precificação solicitada anteriormente
     const cost = listing.catalogItem.itemType === ItemType.EQUIPMENT ? 40 : 10;
     if (currentUser.walletBalance < cost) {
       return alert(`Saldo insuficiente para reserva. Você precisa de R$ ${cost.toFixed(2)} em sua carteira.`);
@@ -182,16 +181,41 @@ export const ListingDetails: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* SEÇÃO DE DETALHES TÉCNICOS: SELO E FORMATO */}
+          <div className="grid grid-cols-3 gap-4">
              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800">
                 <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Formato</span>
                 <span className="text-sm font-medium text-white">{listing.catalogItem.itemType}</span>
              </div>
              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800">
-                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Gênero</span>
-                <span className="text-sm font-medium text-white">{listing.catalogItem.genre}</span>
+                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Selo</span>
+                <span className="text-sm font-medium text-white">{listing.catalogItem.label || 'N/A'}</span>
+             </div>
+             <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+                <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Ano</span>
+                <span className="text-sm font-medium text-white">{listing.catalogItem.year || 'N/A'}</span>
              </div>
           </div>
+
+          {/* SEÇÃO DE FAIXAS (TRACKLIST) - REINTEXTUALIZADA COMO SOLICITADO */}
+          {listing.catalogItem.tracks && listing.catalogItem.tracks.length > 0 && (
+            <div className="bg-gray-900/30 rounded-xl border border-gray-800 p-6">
+               <h3 className="font-bold text-white border-b border-gray-700 pb-3 mb-4 flex items-center gap-2">
+                 <span className="text-vinyl-accent">📜</span> Lista de Faixas / Capítulos
+               </h3>
+               <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                  {listing.catalogItem.tracks.map((track, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-sm py-1 border-b border-gray-800/50 last:border-0">
+                       <div className="flex gap-3">
+                          <span className="text-gray-500 font-mono w-6">{track.position}</span>
+                          <span className="text-gray-200">{track.title}</span>
+                       </div>
+                       <span className="text-gray-500 font-mono text-xs">{track.duration}</span>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          )}
 
           {isLot && (
             <div className="space-y-3">
@@ -213,7 +237,7 @@ export const ListingDetails: React.FC = () => {
           )}
 
           <div>
-            <h3 className="font-bold border-b border-gray-700 pb-2 mb-2">Descrição do Vendedor</h3>
+            <h3 className="font-bold border-b border-gray-700 pb-2 mb-2 uppercase text-xs tracking-widest text-gray-400">Descrição do Vendedor</h3>
             <p className="text-gray-300 italic leading-relaxed">"{listing.description || 'O vendedor não forneceu uma descrição detalhada.'}"</p>
           </div>
           
