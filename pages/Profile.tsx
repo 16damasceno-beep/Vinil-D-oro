@@ -16,6 +16,7 @@ export const Profile: React.FC = () => {
   } = useStore();
   
   const navigate = useNavigate();
+  // Abas atualizadas para incluir HISTORY explicitamente
   const [activeTab, setActiveTab] = useState<'SALES' | 'PURCHASES' | 'RESERVATIONS' | 'HISTORY' | 'FINANCIAL' | 'SETTINGS'>('SALES');
   const [trackingInput, setTrackingInput] = useState<{ [key: string]: string }>({});
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -33,7 +34,7 @@ export const Profile: React.FC = () => {
   const myPurchases = listings.filter(l => l.buyerId === currentUser.id);
   const myIncomingReservations = reservations.filter(r => r.sellerId === currentUser.id && r.status === 'PENDENTE');
   
-  // Transações ordenadas por data descendente
+  // Transações ordenadas por data descendente para o extrato
   const myTransactions = [...(currentUser.transactions || [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -80,75 +81,73 @@ export const Profile: React.FC = () => {
       <ReceiptModal isOpen={!!receiptData} onClose={() => setReceiptData(null)} listing={receiptData?.listing!} viewerRole={receiptData?.role!} />
       {chatData && <ChatModal isOpen={!!chatData} onClose={() => setChatData(null)} listing={chatData.listing} receiverId={chatData.receiverId} receiverName={chatData.receiverName} />}
 
-      <div className="max-w-5xl mx-auto">
-        {/* Top Header Card */}
-        <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 mb-6 flex flex-col md:flex-row items-center gap-8 shadow-xl">
-          <div className="w-24 h-24 bg-vinyl-accent rounded-full flex items-center justify-center text-3xl font-bold text-black border-4 border-gray-700 shadow-lg">{currentUser.name.charAt(0)}</div>
+      <div className="max-w-6xl mx-auto">
+        {/* Cabeçalho do Perfil - Igual ao seu print, mas com link no saldo */}
+        <div className="bg-[#1e293b]/40 rounded-3xl p-8 border border-gray-800 mb-8 flex flex-col md:flex-row items-center gap-8 shadow-2xl backdrop-blur-md">
+          <div className="w-28 h-28 bg-vinyl-accent rounded-full flex items-center justify-center text-4xl font-bold text-black border-4 border-[#334155] shadow-xl">{currentUser.name.charAt(0)}</div>
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-2xl font-bold text-white">{currentUser.name}</h1>
-            <p className="text-gray-400 text-sm">{currentUser.nickname} • Membro Verificado</p>
+            <div className="flex items-center justify-center md:justify-start gap-3 mb-1">
+               <h1 className="text-3xl font-extrabold text-white tracking-tight">{currentUser.name}</h1>
+               {currentUser.role === 'ADMIN' && <span className="bg-red-900/40 text-red-400 text-[10px] font-black px-2 py-0.5 rounded border border-red-800/50 uppercase">Admin</span>}
+            </div>
+            <p className="text-gray-400 font-medium">{currentUser.nickname} • Colecionador Vinil D'oro</p>
           </div>
           
-          {/* Card de Saldo com Link Direto para Histórico */}
+          {/* Card de Saldo - CLICÁVEL PARA IR AO HISTÓRICO */}
           <button 
             onClick={() => setActiveTab('HISTORY')}
-            className="bg-gray-900 p-4 rounded-xl border border-gray-700 min-w-[220px] text-center shadow-inner relative overflow-hidden group hover:border-vinyl-accent transition-all cursor-pointer"
+            className="bg-[#0f172a] p-6 rounded-2xl border border-gray-700 min-w-[260px] text-center shadow-inner relative overflow-hidden group hover:border-vinyl-accent transition-all cursor-pointer"
           >
-             <div className="absolute top-0 right-0 p-2 opacity-5 text-4xl group-hover:opacity-20 group-hover:scale-110 transition">📊</div>
-             <span className="text-gray-400 text-xs uppercase block font-bold mb-1 group-hover:text-vinyl-accent">Meu Saldo Atual</span>
-             <span className="text-vinyl-gold font-bold text-3xl">R$ {currentUser.walletBalance.toFixed(2)}</span>
-             <p className="text-[9px] text-gray-600 mt-2 font-bold uppercase tracking-tighter group-hover:text-white">Clique para ver extrato ➜</p>
+             <div className="absolute top-0 right-0 p-4 opacity-5 text-5xl group-hover:opacity-20 group-hover:scale-110 transition">📊</div>
+             <span className="text-gray-500 text-[10px] uppercase block font-black tracking-widest mb-1 group-hover:text-vinyl-accent">Saldo Disponível</span>
+             <span className="text-vinyl-gold font-bold text-4xl tabular-nums">R$ {currentUser.walletBalance.toFixed(2)}</span>
+             <p className="text-[9px] text-blue-400 mt-3 font-bold uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition">Ver Extrato Completo ➜</p>
           </button>
         </div>
 
-        {/* Tab Navigation - Mais destacada */}
-        <div className="flex border-b border-gray-700 mb-8 overflow-x-auto scrollbar-hide bg-gray-900/30 rounded-t-xl px-2">
-          <button onClick={() => setActiveTab('SALES')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'SALES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>📦 Minhas Vendas</button>
-          <button onClick={() => setActiveTab('PURCHASES')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'PURCHASES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>🛒 Minhas Compras</button>
+        {/* Barra de Abas - ATUALIZADA COM HISTÓRICO EXPLÍCITO */}
+        <div className="flex border-b border-gray-800 mb-10 overflow-x-auto scrollbar-hide bg-gray-900/20 rounded-t-2xl px-4">
+          <button onClick={() => setActiveTab('SALES')} className={`px-6 py-5 font-bold text-[11px] uppercase transition-all whitespace-nowrap ${activeTab === 'SALES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Vendas ({myListings.length})</button>
+          <button onClick={() => setActiveTab('PURCHASES')} className={`px-6 py-5 font-bold text-[11px] uppercase transition-all whitespace-nowrap ${activeTab === 'PURCHASES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Compras ({myPurchases.length})</button>
+          <button onClick={() => setActiveTab('RESERVATIONS')} className={`px-6 py-5 font-bold text-[11px] uppercase transition-all whitespace-nowrap ${activeTab === 'RESERVATIONS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Reservas</button>
           
-          {/* ABA DE HISTÓRICO COM DESTAQUE */}
-          <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'HISTORY' ? 'text-vinyl-accent border-b-2 border-vinyl-accent bg-vinyl-accent/5' : 'text-gray-400 hover:text-gray-200'}`}>
-            📊 EXTRATO & HISTÓRICO
-            {myTransactions.length > 0 && <span className="ml-2 bg-gray-800 text-[9px] px-1.5 py-0.5 rounded-full text-white">{myTransactions.length}</span>}
+          {/* ABA DE HISTÓRICO COM DESTAQUE VISUAL */}
+          <button 
+            onClick={() => setActiveTab('HISTORY')} 
+            className={`px-8 py-5 font-black text-[11px] uppercase transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'HISTORY' ? 'text-white border-b-2 border-white bg-white/5' : 'text-vinyl-accent/70 hover:text-vinyl-accent'}`}
+          >
+            📜 HISTÓRICO DE NEGOCIAÇÕES
+            {myTransactions.length > 0 && <span className="bg-vinyl-accent text-black text-[9px] px-2 py-0.5 rounded-full">{myTransactions.length}</span>}
           </button>
           
-          <button onClick={() => setActiveTab('RESERVATIONS')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'RESERVATIONS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>⏳ Reservas</button>
-          <button onClick={() => setActiveTab('FINANCIAL')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'FINANCIAL' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>⚙️ Financeiro</button>
-          <button onClick={() => setActiveTab('SETTINGS')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'SETTINGS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>🛠️ Ajustes</button>
+          <button onClick={() => setActiveTab('FINANCIAL')} className={`px-6 py-5 font-bold text-[11px] uppercase transition-all whitespace-nowrap ${activeTab === 'FINANCIAL' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Financeiro</button>
+          <button onClick={() => setActiveTab('SETTINGS')} className={`px-6 py-5 font-bold text-[11px] uppercase transition-all whitespace-nowrap ${activeTab === 'SETTINGS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Configurações</button>
         </div>
 
-        {/* Sales Tab */}
+        {/* Conteúdo das Abas */}
         {activeTab === 'SALES' && (
           <div className="space-y-4 animate-[fadeIn_0.3s]">
             {myListings.length === 0 ? (
-                <div className="p-20 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700 text-gray-500 italic">Você ainda não tem anúncios ativos.</div>
+                <div className="p-20 text-center bg-gray-900/50 rounded-2xl border border-dashed border-gray-800 text-gray-500 italic">Nenhum anúncio criado.</div>
             ) : myListings.map(l => (
-                <div key={l.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 hover:border-gray-600 transition">
-                    <img src={l.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded shadow-lg" />
+                <div key={l.id} className="bg-[#1e293b]/30 p-5 rounded-2xl border border-gray-800 flex flex-col md:flex-row gap-6 hover:border-gray-700 transition group">
+                    <div className="w-24 h-24 bg-black rounded-xl overflow-hidden shadow-lg border border-gray-800">
+                        <img src={l.catalogItem.coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
+                    </div>
                     <div className="flex-1">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start mb-2">
                             <div>
-                                <h3 className="font-bold text-white text-lg">{l.catalogItem.title}</h3>
-                                <p className="text-sm text-vinyl-accent font-medium">Preço Bruto: R$ {l.price.toFixed(2)}</p>
+                                <h3 className="font-bold text-white text-xl">{l.catalogItem.title}</h3>
+                                <p className="text-sm text-vinyl-accent font-bold">R$ {l.price.toFixed(2)}</p>
                             </div>
                             {renderStatusBadge(l.status)}
                         </div>
-                        {l.status === 'AGUARDANDO_ENVIO' && (
-                            <div className="mt-3 flex gap-2 bg-gray-900 p-3 rounded-lg border border-gray-700">
-                                <input type="text" placeholder="Código de Rastreio" className="bg-gray-800 border border-gray-700 text-white text-xs p-2 rounded flex-1 outline-none focus:border-vinyl-accent" onChange={e => setTrackingInput({...trackingInput, [l.id]: e.target.value})} />
-                                <button onClick={() => handleShip(l.id)} className="bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold px-4 py-2 rounded uppercase tracking-wider transition">Marcar Enviado</button>
-                            </div>
-                        )}
-                        <div className="mt-4 flex gap-2">
+                        <div className="mt-6 flex flex-wrap gap-2">
                            {(l.status === 'DISPONÍVEL' || l.status === 'INDISPONÍVEL') && (
-                             <button onClick={() => handleTogglePause(l.id, l.status)} className="text-[10px] bg-gray-700 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-gray-600 transition">PAUSAR/ATIVAR</button>
+                             <button onClick={() => handleTogglePause(l.id, l.status)} className="text-[10px] bg-gray-800 text-white px-4 py-2 rounded-xl font-black uppercase border border-gray-700 hover:bg-gray-700 transition">PAUSAR VENDA</button>
                            )}
-                           {l.status === 'CONCLUÍDO' && (
-                             <button onClick={() => setReceiptData({listing: l, role: 'SELLER'})} className="text-[10px] bg-gray-700 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-gray-600 transition">VER RECIBO</button>
-                           )}
-                           {l.buyerId && (
-                             <button onClick={() => handleOpenChat(l, 'BUYER')} className="text-[10px] border border-blue-600/50 text-blue-400 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-900/20 transition uppercase">Chat com Comprador</button>
-                           )}
+                           <Link to={`/edit/${l.id}`} className="text-[10px] bg-blue-900/30 text-blue-400 px-4 py-2 rounded-xl font-black uppercase border border-blue-800/30 hover:bg-blue-900/50 transition">EDITAR</Link>
+                           <button onClick={() => deleteListing(l.id)} className="text-[10px] bg-red-900/30 text-red-400 px-4 py-2 rounded-xl font-black uppercase border border-red-800/30 hover:bg-red-900/50 transition">EXCLUIR</button>
                         </div>
                     </div>
                 </div>
@@ -156,30 +155,30 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* Purchases Tab */}
+        {/* COMPRAS */}
         {activeTab === 'PURCHASES' && (
           <div className="space-y-4 animate-[fadeIn_0.3s]">
              {myPurchases.length === 0 ? (
-                <div className="p-20 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700 text-gray-500 italic">Nenhuma compra registrada.</div>
+                <div className="p-20 text-center bg-gray-900/50 rounded-2xl border border-dashed border-gray-800 text-gray-500 italic">Você ainda não realizou compras.</div>
             ) : myPurchases.map(l => (
-                <div key={l.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 hover:border-gray-600 transition">
-                    <img src={l.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded shadow-lg" />
+                <div key={l.id} className="bg-[#1e293b]/30 p-5 rounded-2xl border border-gray-800 flex flex-col md:flex-row gap-6 hover:border-gray-700 transition">
+                    <img src={l.catalogItem.coverUrl} className="w-24 h-24 object-cover rounded-xl shadow-lg border border-gray-800" />
                     <div className="flex-1">
                         <div className="flex justify-between items-start">
                             <div>
-                                <h3 className="font-bold text-white text-lg">{l.catalogItem.title}</h3>
-                                <p className="text-sm text-gray-400">Vendedor: <span className="text-white font-medium">{l.sellerName}</span></p>
+                                <h3 className="font-bold text-white text-xl">{l.catalogItem.title}</h3>
+                                <p className="text-sm text-gray-400">Vendedor: <span className="text-white font-bold">{l.sellerName}</span></p>
                             </div>
                             {renderStatusBadge(l.status)}
                         </div>
-                        <div className="mt-4 flex gap-2">
+                        <div className="mt-6 flex gap-3">
                            {(l.status === 'ENVIADO' || l.status === 'AGUARDANDO_ENVIO') && (
-                             <button onClick={() => handleConfirmReceipt(l.id)} className="text-[10px] bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-500 transition uppercase tracking-wider shadow-lg">Confirmar Recebimento</button>
+                             <button onClick={() => handleConfirmReceipt(l.id)} className="text-[11px] bg-green-600 text-white px-5 py-2.5 rounded-xl font-black hover:bg-green-500 transition uppercase shadow-xl">Confirmar Recebimento</button>
                            )}
                            {l.status === 'CONCLUÍDO' && (
-                             <button onClick={() => setReceiptData({listing: l, role: 'BUYER'})} className="text-[10px] bg-gray-700 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-gray-600 transition uppercase">Ver Recibo</button>
+                             <button onClick={() => setReceiptData({listing: l, role: 'BUYER'})} className="text-[11px] bg-gray-800 text-white px-5 py-2.5 rounded-xl font-black hover:bg-gray-700 transition uppercase border border-gray-700">Ver Recibo</button>
                            )}
-                           <button onClick={() => handleOpenChat(l, 'SELLER')} className="text-[10px] border border-gray-600 text-gray-400 px-3 py-1.5 rounded-lg font-bold hover:bg-gray-700 transition uppercase">Abrir Chat</button>
+                           <button onClick={() => handleOpenChat(l, 'SELLER')} className="text-[11px] border border-blue-600 text-blue-400 px-5 py-2.5 rounded-xl font-black hover:bg-blue-900/20 transition uppercase">Abrir Chat</button>
                         </div>
                     </div>
                 </div>
@@ -187,58 +186,61 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* NOVO HISTÓRICO REFORMULADO (EXTRATO) */}
+        {/* ABA HISTÓRICO - ONDE APARECE O EXTRATO DETALHADO */}
         {activeTab === 'HISTORY' && (
-           <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden animate-[fadeIn_0.3s] shadow-2xl">
-              <div className="p-6 border-b border-gray-700 bg-gray-900/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+           <div className="bg-[#0f172a] rounded-3xl border border-gray-800 overflow-hidden animate-[fadeIn_0.3s] shadow-2xl">
+              <div className="p-8 border-b border-gray-800 bg-gray-900/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                  <div>
-                    <h2 className="text-white font-bold text-lg flex items-center gap-2">
-                       <span className="text-vinyl-accent text-xl">📋</span> Extrato Financeiro & Histórico
+                    <h2 className="text-white font-black text-xl flex items-center gap-3 tracking-tight">
+                       <span className="bg-vinyl-accent text-black w-8 h-8 rounded-lg flex items-center justify-center text-lg">📑</span> 
+                       EXTRATO FINANCEIRO DETALHADO
                     </h2>
-                    <p className="text-xs text-gray-500 mt-1">Veja todos os seus débitos, créditos, taxas e descontos aplicados.</p>
+                    <p className="text-xs text-gray-500 mt-2 font-medium uppercase tracking-widest">Acompanhe cada entrada e saída da sua conta Vinil D'oro.</p>
                  </div>
-                 <div className="bg-black/40 px-4 py-2 rounded-lg border border-gray-700">
-                    <p className="text-[10px] uppercase font-bold text-gray-500 mb-1">Saldo em Carteira</p>
-                    <p className="text-vinyl-accent font-mono font-bold text-xl">R$ {currentUser.walletBalance.toFixed(2)}</p>
+                 <div className="bg-black/60 px-6 py-3 rounded-2xl border border-gray-800 flex flex-col items-end shadow-inner">
+                    <p className="text-[10px] uppercase font-black text-gray-600 mb-1">Saldo Atual em Carteira</p>
+                    <p className="text-vinyl-accent font-mono font-black text-2xl tracking-tighter">R$ {currentUser.walletBalance.toFixed(2)}</p>
                  </div>
               </div>
               
-              <div className="divide-y divide-gray-700 max-h-[650px] overflow-y-auto custom-scrollbar">
+              <div className="divide-y divide-gray-800 max-h-[700px] overflow-y-auto custom-scrollbar bg-[#0f172a]">
                  {myTransactions.length === 0 ? (
-                    <div className="p-24 text-center">
-                       <span className="text-5xl block mb-4 grayscale opacity-30">📑</span>
-                       <p className="text-gray-500 italic">Nenhuma movimentação financeira encontrada.</p>
-                       <p className="text-[10px] text-gray-600 mt-2">Transações de compras, vendas e taxas aparecerão aqui.</p>
+                    <div className="p-28 text-center">
+                       <div className="w-20 h-20 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-800">
+                          <span className="text-4xl grayscale opacity-20">📭</span>
+                       </div>
+                       <p className="text-gray-500 font-bold text-sm uppercase tracking-widest">Nenhuma movimentação registrada.</p>
+                       <p className="text-[10px] text-gray-700 mt-2 uppercase">Vendas, compras e depósitos aparecerão listados aqui.</p>
                     </div>
                  ) : (
                     myTransactions.map(t => (
-                       <div key={t.id} className="p-5 hover:bg-gray-700/30 transition flex justify-between items-center group">
-                          <div className="flex items-center gap-5">
-                             {/* Ícone de Fluxo */}
-                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg shadow-lg ${t.type === 'CREDIT' ? 'bg-green-900/30 text-green-400 border border-green-800/40' : 'bg-red-900/30 text-red-400 border border-red-800/40'}`}>
+                       <div key={t.id} className="p-6 hover:bg-white/5 transition flex justify-between items-center group">
+                          <div className="flex items-center gap-6">
+                             {/* Indicador de Fluxo (Entrada/Saída) */}
+                             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-2xl transform group-hover:scale-110 transition ${t.type === 'CREDIT' ? 'bg-green-900/20 text-green-400 border border-green-800/30' : 'bg-red-900/20 text-red-400 border border-red-800/30'}`}>
                                 {t.type === 'CREDIT' ? '↙' : '↗'}
                              </div>
                              <div>
-                                <p className="text-sm font-bold text-white group-hover:text-vinyl-accent transition-colors">{t.description}</p>
-                                <div className="flex flex-wrap gap-2 items-center mt-2">
-                                   <span className={`text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest border ${
+                                <p className="text-base font-bold text-white group-hover:text-vinyl-accent transition-colors leading-tight mb-2">{t.description}</p>
+                                <div className="flex flex-wrap gap-3 items-center">
+                                   <span className={`text-[9px] px-2 py-0.5 rounded-md font-black uppercase tracking-tighter border ${
                                       t.category === 'TAXA_PLATAFORMA' ? 'bg-orange-900/40 text-orange-400 border-orange-800' : 
                                       t.category === 'COMPRA' ? 'bg-blue-900/40 text-blue-400 border-blue-800' : 
                                       t.category === 'VENDA' ? 'bg-green-900/40 text-green-400 border-green-800' :
-                                      'bg-gray-900 text-gray-400 border-gray-700'
+                                      'bg-gray-900 text-gray-500 border-gray-700'
                                    }`}>
                                       {t.category.replace('_', ' ')}
                                    </span>
-                                   <span className="text-[10px] text-gray-500 font-mono bg-gray-900/50 px-1.5 py-0.5 rounded">{new Date(t.createdAt).toLocaleString('pt-BR')}</span>
+                                   <span className="text-[11px] text-gray-600 font-mono font-bold">{new Date(t.createdAt).toLocaleString('pt-BR')}</span>
                                 </div>
                              </div>
                           </div>
                           <div className="text-right">
-                             <p className={`text-lg font-mono font-bold ${t.type === 'CREDIT' ? 'text-green-400' : 'text-red-400'}`}>
+                             <p className={`text-xl font-mono font-black tracking-tighter ${t.type === 'CREDIT' ? 'text-green-400' : 'text-red-400'}`}>
                                 {t.type === 'CREDIT' ? '+' : '-'} R$ {t.amount.toFixed(2)}
                              </p>
                              {t.listingId && (
-                                <Link to={`/listing/${t.listingId}`} className="text-[9px] text-gray-600 hover:text-vinyl-accent block mt-1 uppercase font-black transition">REF: {t.listingId.split('-')[1]} ➜</Link>
+                                <Link to={`/listing/${t.listingId}`} className="text-[9px] text-gray-700 hover:text-white block mt-2 uppercase font-black tracking-tighter border-b border-transparent hover:border-white transition-all w-fit ml-auto">REF: {t.listingId.split('-')[1]} ➜</Link>
                              )}
                           </div>
                        </div>
@@ -246,90 +248,66 @@ export const Profile: React.FC = () => {
                  )}
               </div>
               
-              <div className="bg-gray-900 p-4 border-t border-gray-700 flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-gray-500">
+              <div className="bg-[#020617] p-5 border-t border-gray-800 flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-600">
                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span> Sistema de Transações Seguro
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span> Conexão Financeira Segura
                  </span>
-                 <span className="text-white bg-gray-800 px-3 py-1 rounded-full">{myTransactions.length} Lançamentos</span>
+                 <span className="text-gray-400 bg-gray-900 px-4 py-1.5 rounded-full border border-gray-800">Total de {myTransactions.length} registros</span>
               </div>
            </div>
         )}
 
-        {/* Reservations Tab */}
-        {activeTab === 'RESERVATIONS' && (
-          <div className="space-y-4 animate-[fadeIn_0.3s]">
-             {myIncomingReservations.length === 0 ? (
-               <div className="p-20 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700 text-gray-500 italic">Sem novas solicitações de reserva.</div>
-             ) : myIncomingReservations.map(r => (
-               <div key={r.id} className="bg-gray-800 p-6 rounded-xl border border-vinyl-accent/20 flex flex-col md:flex-row justify-between items-center gap-6 shadow-lg">
-                  <div className="flex items-center gap-4">
-                     <span className="text-3xl">⏳</span>
-                     <div>
-                        <p className="text-white font-bold">Solicitação de Reserva (5 Dias)</p>
-                        <p className="text-xs text-gray-400">ID Reserva: {r.id}</p>
-                     </div>
-                  </div>
-                  <div className="flex gap-2 w-full md:w-auto">
-                     <button onClick={() => rejectReservation(r.id)} className="flex-1 md:flex-none px-6 py-2 bg-gray-700 text-white font-bold rounded-lg hover:bg-red-900 transition">RECUSAR</button>
-                     <button onClick={() => approveReservation(r.id)} className="flex-1 md:flex-none px-6 py-2 bg-vinyl-accent text-black font-bold rounded-lg hover:bg-yellow-600 shadow-lg transition">ACEITAR</button>
-                  </div>
-               </div>
-             ))}
-          </div>
-        )}
-
-        {/* Financial Settings */}
+        {/* FINANCEIRO (CONFIGS) */}
         {activeTab === 'FINANCIAL' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-[fadeIn_0.3s]">
-             <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                   <span className="text-vinyl-accent">💠</span> Chave PIX para Recebimentos
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-[fadeIn_0.3s]">
+             <div className="bg-[#1e293b]/40 p-8 rounded-3xl border border-gray-800 shadow-xl">
+                <h3 className="text-white font-black mb-6 flex items-center gap-3 uppercase text-sm tracking-widest">
+                   <span className="text-vinyl-accent text-xl">💠</span> Recebimentos via PIX
                 </h3>
                 {currentUser.bankInfo ? (
-                   <div className="bg-gray-900 p-4 rounded border border-gray-700 mb-4">
-                      <p className="text-xs text-gray-500 uppercase font-bold">Chave Atual</p>
-                      <p className="text-lg text-vinyl-accent font-mono">{currentUser.bankInfo.pixKey}</p>
+                   <div className="bg-black/40 p-6 rounded-2xl border border-gray-800 mb-6 shadow-inner">
+                      <p className="text-[10px] text-gray-500 uppercase font-black mb-2">Chave PIX Cadastrada</p>
+                      <p className="text-xl text-vinyl-accent font-mono font-bold tracking-tight">{currentUser.bankInfo.pixKey}</p>
                    </div>
-                ) : <p className="text-xs text-gray-500 italic mb-4">Nenhuma chave PIX cadastrada. Você precisa disso para sacar seus lucros.</p>}
+                ) : <p className="text-xs text-gray-500 italic mb-6">Nenhuma chave PIX para saques foi cadastrada.</p>}
                 
                 <button 
                   onClick={() => {
-                    const key = prompt("Digite sua nova chave PIX:");
+                    const key = prompt("Digite sua chave PIX para recebimento de vendas:");
                     if (key) updateUserFinancials({ pixKey: key, bankName: 'Padrão', accountType: 'CORRENTE', agency: '001', accountNumber: '001' });
                   }} 
-                  className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg text-xs uppercase tracking-widest transition"
+                  className="w-full bg-gray-800 hover:bg-gray-700 text-white font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest border border-gray-700 transition shadow-lg"
                 >
-                  {currentUser.bankInfo ? 'Alterar Chave' : 'Cadastrar PIX'}
+                  {currentUser.bankInfo ? 'ALTERAR CHAVE PIX' : 'CADASTRAR CHAVE PIX'}
                 </button>
              </div>
              
-             <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                   <span className="text-vinyl-accent">📥</span> Simular Depósito
+             <div className="bg-[#1e293b]/40 p-8 rounded-3xl border border-gray-800 shadow-xl">
+                <h3 className="text-white font-black mb-6 flex items-center gap-3 uppercase text-sm tracking-widest">
+                   <span className="text-vinyl-accent text-xl">📥</span> Carregar Carteira
                 </h3>
-                <p className="text-xs text-gray-500 mb-4">Adicione saldo fictício para testar as funcionalidades de compra e reserva.</p>
-                <button onClick={() => depositFunds(100)} className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-4 rounded-xl text-sm uppercase tracking-widest shadow-xl transition transform active:scale-95">Depositar R$ 100,00</button>
+                <p className="text-xs text-gray-500 mb-6 leading-relaxed">Adicione saldo para realizar compras ou reservas instantâneas.</p>
+                <button onClick={() => depositFunds(100)} className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest shadow-xl transition-all transform active:scale-95">Simular Depósito R$ 100,00</button>
              </div>
           </div>
         )}
 
-        {/* Security Settings */}
+        {/* AJUSTES / CONFIGURAÇÕES */}
         {activeTab === 'SETTINGS' && (
            <div className="max-w-md mx-auto animate-[fadeIn_0.3s]">
-              <form onSubmit={handlePasswordSubmit} className="bg-gray-800 p-8 rounded-2xl border border-gray-700 space-y-4 shadow-2xl">
-                 <h3 className="text-white font-bold border-b border-gray-700 pb-2 mb-4">Segurança & Senha</h3>
+              <form onSubmit={handlePasswordSubmit} className="bg-[#1e293b]/40 p-8 rounded-3xl border border-gray-800 space-y-6 shadow-2xl">
+                 <h3 className="text-white font-black border-b border-gray-800 pb-4 mb-4 uppercase text-sm tracking-widest">Segurança & Acesso</h3>
                  {pwdStatus && (
-                    <div className={`p-3 rounded text-xs font-bold text-center mb-4 ${pwdStatus.type === 'SUCCESS' ? 'bg-green-900/20 text-green-400' : 'bg-red-900/20 text-red-400'}`}>
+                    <div className={`p-4 rounded-xl text-xs font-bold text-center mb-4 border ${pwdStatus.type === 'SUCCESS' ? 'bg-green-900/20 text-green-400 border-green-800/30' : 'bg-red-900/20 text-red-400 border-red-800/30'}`}>
                        {pwdStatus.message}
                     </div>
                  )}
-                 <div className="space-y-3">
-                    <input type="password" placeholder="Senha Atual" className="w-full bg-gray-900 border border-gray-700 p-3 rounded-lg text-sm text-white focus:border-vinyl-accent outline-none" value={pwdForm.current} onChange={e => setPwdForm({...pwdForm, current: e.target.value})} />
-                    <input type="password" placeholder="Nova Senha" className="w-full bg-gray-900 border border-gray-700 p-3 rounded-lg text-sm text-white focus:border-vinyl-accent outline-none" value={pwdForm.new} onChange={e => setPwdForm({...pwdForm, new: e.target.value})} />
-                    <input type="password" placeholder="Confirmar Nova Senha" className="w-full bg-gray-900 border border-gray-700 p-3 rounded-lg text-sm text-white focus:border-vinyl-accent outline-none" value={pwdForm.confirm} onChange={e => setPwdForm({...pwdForm, confirm: e.target.value})} />
+                 <div className="space-y-4">
+                    <input type="password" placeholder="Senha Atual" className="w-full bg-black/40 border border-gray-800 p-4 rounded-xl text-sm text-white focus:border-vinyl-accent outline-none shadow-inner" value={pwdForm.current} onChange={e => setPwdForm({...pwdForm, current: e.target.value})} />
+                    <input type="password" placeholder="Nova Senha (Mín. 8 chars)" className="w-full bg-black/40 border border-gray-800 p-4 rounded-xl text-sm text-white focus:border-vinyl-accent outline-none shadow-inner" value={pwdForm.new} onChange={e => setPwdForm({...pwdForm, new: e.target.value})} />
+                    <input type="password" placeholder="Confirmar Nova Senha" className="w-full bg-black/40 border border-gray-800 p-4 rounded-xl text-sm text-white focus:border-vinyl-accent outline-none shadow-inner" value={pwdForm.confirm} onChange={e => setPwdForm({...pwdForm, confirm: e.target.value})} />
                  </div>
-                 <p className="text-[10px] text-gray-500 italic mt-2">A nova senha deve ter no mínimo 8 caracteres.</p>
-                 <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-4 rounded-xl mt-4 shadow-xl transition transform active:scale-95 uppercase tracking-widest text-xs">Atualizar Minha Senha</button>
+                 <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-black py-4 rounded-2xl shadow-xl transition-all transform active:scale-95 uppercase tracking-widest text-[11px]">Atualizar Minha Senha</button>
               </form>
            </div>
         )}
