@@ -438,6 +438,17 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u));
         dbUpsert('users', upSeller);
     }
+
+    // NEW LOGIC: Check if this purchase satisfies a WantRequest
+    const associatedResponse = wantResponses.find(res => res.listingId === listingId);
+    if (associatedResponse) {
+      const associatedRequest = wantRequests.find(req => req.id === associatedResponse.requestId);
+      if (associatedRequest) {
+        const updatedRequest = { ...associatedRequest, status: 'FINALIZADO' as const };
+        setWantRequests(prev => prev.map(r => r.id === associatedRequest.id ? updatedRequest : r));
+        dbUpsert('want_requests', updatedRequest);
+      }
+    }
   };
 
   const markAsShipped = (id: string, trackingCode: string) => {

@@ -33,6 +33,8 @@ export const LookingFor: React.FC = () => {
   const [form, setForm] = useState({ title: '', artist: '', description: '', image: '' as string });
   const [file, setFile] = useState<File | null>(null);
 
+  const activeRequests = wantRequests.filter(req => req.status === 'ABERTO');
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm) return;
@@ -241,14 +243,14 @@ export const LookingFor: React.FC = () => {
 
         {/* Want Requests List */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {wantRequests.length === 0 ? (
+          {activeRequests.length === 0 ? (
             <div className="col-span-full py-24 text-center text-gray-500 bg-gray-900/50 rounded-3xl border border-dashed border-gray-800">
                <span className="text-5xl block mb-4">🛸</span>
                <p className="text-lg font-medium text-gray-400">Ninguém está procurando nada por enquanto.</p>
                <p className="text-sm">Seja o primeiro a postar o que você deseja colecionar!</p>
             </div>
           ) : (
-            wantRequests.map(req => {
+            activeRequests.map(req => {
               const responsesCount = wantResponses.filter(r => r.requestId === req.id).length;
               return (
                 <div key={req.id} className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden hover:border-vinyl-accent transition-all group flex flex-col shadow-lg hover:shadow-vinyl-accent/10">
