@@ -227,7 +227,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const login = (email: string, password?: string) => {
     const user = users.find(u => u.email === email);
     if (!user) return alert('Usuário não encontrado.');
-    if (!user.isVerified && user.role !== 'ADMIN') return alert('Conta não ativada.');
+    if (!user.isVerified && user.role !== 'ADMIN')$ return alert('Conta não ativada.');
     if (user.password && user.password !== password) return alert('Senha incorreta.');
     setCurrentUser(user);
   };
@@ -324,6 +324,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         notifications: [{ id: `n-dep-${Date.now()}`, message: `Depósito de R$ ${amount.toFixed(2)} realizado.`, read: false, createdAt: new Date().toISOString() }, ...userToUpdate.notifications]
     };
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
+    setCurrentUser(updatedUser); // Update local state for immediate feedback
     dbUpsert('users', updatedUser);
   };
 
@@ -362,9 +363,15 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const updatedListing = { ...listing, status: 'RESERVADO' as const };
     const updatedSeller = { ...seller, walletBalance: seller.walletBalance + share, notifications: [{ id: `n-res-app-${Date.now()}`, message: `Reserva aceita! R$ ${share.toFixed(2)} recebidos.`, read: false, createdAt: new Date().toISOString() }, ...seller.notifications] };
     const updatedBuyer = { ...buyer, walletBalance: buyer.walletBalance - cost, notifications: [{ id: `n-res-buy-${Date.now()}`, message: `Sua reserva foi aprovada!`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications] };
+    
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
     setListings(prev => prev.map(l => l.id === res.listingId ? updatedListing : l));
     setUsers(prev => prev.map(u => u.id === seller.id ? updatedSeller : u.id === buyer.id ? updatedBuyer : u));
+    
+    // Sync current user if they are buyer or seller
+    if (currentUser?.id === seller.id) setCurrentUser(updatedSeller);
+    if (currentUser?.id === buyer.id) setCurrentUser(updatedBuyer);
+
     dbUpsert('reservations', updatedRes); dbUpsert('listings', updatedListing); dbUpsert('users', updatedSeller); dbUpsert('users', updatedBuyer);
     sendReservationDecisionNotification(buyer, seller, catalogItem, true);
   };
@@ -385,6 +392,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         notifications: [{ id: `n-res-rej-${Date.now()}`, message: `Sua reserva para "${catalogItem.title}" foi recusada.`, read: false, createdAt: new Date().toISOString() }, ...buyer.notifications]
     };
     setUsers(prev => prev.map(u => u.id === buyer.id ? buyerUpdate : u));
+    if (currentUser?.id === buyer.id) setCurrentUser(buyerUpdate);
     dbUpsert('users', buyerUpdate);
     sendReservationDecisionNotification(buyer, seller, catalogItem, false);
   };
@@ -422,6 +430,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
     setReservations(prev => prev.map(r => r.id === reservationId ? updatedRes : r));
     setUsers(prev => prev.map(u => u.id === buyer.id ? updatedBuyer : u));
+    if (currentUser?.id === buyer.id) setCurrentUser(updatedBuyer);
     dbUpsert('reservations', updatedRes);
     dbUpsert('users', updatedBuyer);
   };
@@ -431,23 +440,44 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
 
+    const shippingPrice = method === 'SHIPPING' ? (listing.shippingCost || 0) : 0;
+    const totalToPay = listing.price + shippingPrice;
+
+    if (currentUser.walletBalance < totalToPay) {
+      return alert(`Saldo insuficiente. Você precisa de R$ ${totalToPay.toFixed(2)} em sua carteira para concluir a compra.`);
+    }
+
+    // DEDUCT FROM BUYER IMMEDIATELY (Platform Escrow)
+    const updatedBuyer = {
+      ...currentUser,
+      walletBalance: currentUser.walletBalance - totalToPay,
+      notifications: [{ id: `n-buy-confirm-${Date.now()}`, message: `Compra de "${listingId}" confirmada. Valor de R$ ${totalToPay.toFixed(2)} reservado para o vendedor.`, read: false, createdAt: new Date().toISOString() }, ...currentUser.notifications]
+    };
+
     const updatedListing = { 
         ...listing, 
         status: 'AGUARDANDO_ENVIO' as const, 
         buyerId: currentUser.id, 
         selectedDeliveryMethod: method, 
-        finalShippingCost: method === 'SHIPPING' ? (listing.shippingCost || 0) : 0, 
-        finalTotalPrice: listing.price + (method === 'SHIPPING' ? (listing.shippingCost || 0) : 0) 
+        finalShippingCost: shippingPrice, 
+        finalTotalPrice: totalToPay 
     };
+    
     setListings(prev => prev.map(l => l.id === listingId ? updatedListing : l));
     dbUpsert('listings', updatedListing);
 
     const seller = users.find(u => u.id === listing.sellerId);
     if(seller) {
         const upSeller = { ...seller, notifications: [{ id: `n-sale-${Date.now()}`, message: `Venda realizada! Verifique os detalhes do envio.`, read: false, createdAt: new Date().toISOString(), type: 'SALE_ALERT' as const }, ...seller.notifications] };
-        setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u));
+        setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u.id === currentUser.id ? updatedBuyer : u));
         dbUpsert('users', upSeller);
+        dbUpsert('users', updatedBuyer);
+    } else {
+        setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedBuyer : u));
+        dbUpsert('users', updatedBuyer);
     }
+    
+    setCurrentUser(updatedBuyer);
 
     // FINALIZAÇÃO AUTOMÁTICA DO PEDIDO NO "PROCURO POR"
     const associatedResponse = wantResponses.find(res => res.listingId === listingId);
@@ -472,16 +502,27 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const confirmReceipt = (id: string) => {
     const l = listings.find(listing => listing.id === id);
     if (!l) return;
+
+    // FEE LOGIC: Deduct 7% from the item price only. Shipping is fully reimbursed.
     const fee = l.price * 0.07;
     const sellerEarnings = (l.price - fee) + (l.finalShippingCost || 0);
+    
     const updated = { ...l, status: 'CONCLUÍDO' as const };
     setListings(prev => prev.map(listing => listing.id === id ? updated : listing));
     dbUpsert('listings', updated);
+
     const seller = users.find(u => u.id === l.sellerId);
     if(seller) {
-        const upSeller = { ...seller, walletBalance: seller.walletBalance + sellerEarnings };
+        const upSeller = { 
+          ...seller, 
+          walletBalance: seller.walletBalance + sellerEarnings,
+          notifications: [{ id: `n-sale-comp-${Date.now()}`, message: `Recebimento confirmado! R$ ${sellerEarnings.toFixed(2)} creditados (Líquido).`, read: false, createdAt: new Date().toISOString() }, ...seller.notifications]
+        };
         setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u));
         dbUpsert('users', upSeller);
+        
+        // If current user is the seller (e.g. admin checking or someone else), update their state
+        if (currentUser?.id === seller.id) setCurrentUser(upSeller);
     }
   };
 
@@ -510,6 +551,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           up.buyerReviewCount = count;
         }
         setUsers(prev => prev.map(u => u.id === target.id ? up : u));
+        if (currentUser?.id === target.id) setCurrentUser(up);
         dbUpsert('users', up);
     }
   };
@@ -519,6 +561,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const upFavs = currentUser.favorites.includes(id) ? currentUser.favorites.filter(x => x !== id) : [...currentUser.favorites, id];
     const upUser = { ...currentUser, favorites: upFavs };
     setUsers(prev => prev.map(u => u.id === currentUser.id ? upUser : u));
+    setCurrentUser(upUser);
     dbUpsert('users', upUser);
   };
 
@@ -526,6 +569,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!currentUser) return;
     const up = { ...currentUser, notifications: currentUser.notifications.map(n => ({ ...n, read: true })) };
     setUsers(prev => prev.map(u => u.id === currentUser.id ? up : u));
+    setCurrentUser(up);
     dbUpsert('users', up);
   };
 
@@ -543,7 +587,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const getUserReviews = (id: string) => reviews.filter(r => r.toUserId === id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const deleteUser = (id: string) => { setUsers(prev => prev.filter(u => u.id !== id)); dbDelete('users', id); };
   const deleteListing = (id: string) => { setListings(prev => prev.filter(l => l.id !== id)); dbDelete('listings', id); };
-  const updateUser = (up: User) => { setUsers(prev => prev.map(u => u.id === up.id ? up : u)); dbUpsert('users', up); };
+  const updateUser = (up: User) => { 
+    setUsers(prev => prev.map(u => u.id === up.id ? up : u)); 
+    if (currentUser?.id === up.id) setCurrentUser(up);
+    dbUpsert('users', up); 
+  };
   const adminCreateUser = (newUser: User) => { setUsers([...users, { ...newUser, isVerified: true }]); dbUpsert('users', { ...newUser, isVerified: true }); };
 
   return (
