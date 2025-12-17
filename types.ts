@@ -32,7 +32,8 @@ export enum ItemType {
   K7 = 'K7',
   CD = 'CD',
   SERATO = 'Serato',
-  EQUIPMENT = 'Equipamento'
+  EQUIPMENT = 'Equipamento',
+  FELTRO = 'Feltro'
 }
 
 export type ProductCondition = 'NOVO' | 'USADO';
