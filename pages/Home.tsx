@@ -11,6 +11,7 @@ export const Home: React.FC = () => {
     .filter(l => l.status === 'DISPONÍVEL')
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  // Separação rigorosa por tipo de item
   const lotListings = allActiveListings.filter(l => l.catalogItem.itemType === ItemType.LOTE).slice(0, 4);
   const equipmentListings = allActiveListings.filter(l => l.catalogItem.itemType === ItemType.EQUIPMENT).slice(0, 5);
   const mediaListings = allActiveListings.filter(l => l.catalogItem.itemType !== ItemType.EQUIPMENT && l.catalogItem.itemType !== ItemType.LOTE).slice(0, 10);
@@ -22,12 +23,12 @@ export const Home: React.FC = () => {
     <Link 
       to={`/listing/${listing.id}`} 
       key={listing.id} 
-      className={`block group rounded-lg overflow-hidden border transition shadow-lg ${highlight ? 'bg-vinyl-accent/5 border-vinyl-accent/50' : 'bg-gray-800 border-gray-700 hover:border-vinyl-accent'}`}
+      className={`block group rounded-lg overflow-hidden border transition shadow-lg hover:scale-[1.02] duration-300 ${highlight ? 'bg-vinyl-accent/5 border-vinyl-accent/50' : 'bg-gray-800 border-gray-700 hover:border-vinyl-accent'}`}
     >
-      <div className="relative pb-[100%] overflow-hidden">
-        <img src={listing.catalogItem.coverUrl} alt={listing.catalogItem.title} className="absolute h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+      <div className="relative pb-[100%] overflow-hidden bg-gray-900">
+        <img src={listing.catalogItem.coverUrl} alt={listing.catalogItem.title} className="absolute h-full w-full object-cover group-hover:scale-105 transition-transform duration-700" />
         {listing.catalogItem.itemType === ItemType.LOTE && (
-          <div className="absolute top-0 left-0 bg-vinyl-accent text-black text-[10px] font-bold px-2 py-1 rounded-br z-10">🎁 LOTE</div>
+          <div className="absolute top-0 left-0 bg-vinyl-accent text-black text-[10px] font-black px-3 py-1 rounded-br z-10 shadow-lg">🎁 LOTE</div>
         )}
         <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded text-[10px] font-bold text-white z-10">
           {listing.condition.split(' ')[0]}
@@ -37,7 +38,7 @@ export const Home: React.FC = () => {
         <h3 className="font-bold text-white truncate text-lg leading-tight">{listing.catalogItem.title}</h3>
         <p className="text-sm text-vinyl-accent truncate font-medium">{listing.catalogItem.artist}</p>
         <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-700">
-          <span className="text-[10px] text-gray-500 uppercase font-bold">{listing.catalogItem.itemType.split(' ')[0]}</span>
+          <span className="text-[10px] text-gray-500 uppercase font-black tracking-widest">{listing.catalogItem.itemType.split(' ')[0]}</span>
           <span className="text-xl font-bold text-white">R$ {listing.price.toFixed(2)}</span>
         </div>
       </div>
@@ -63,7 +64,7 @@ export const Home: React.FC = () => {
             </div>
           </div>
           <div className="flex-1 w-full max-w-lg relative group">
-             <img src="https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=2070&auto=format&fit=crop" className="w-full h-full object-cover rounded-3xl grayscale group-hover:grayscale-0 transition duration-700 shadow-2xl border border-gray-700" alt="Vinyl" />
+             <img src="https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=2070&auto=format&fit=crop" className="w-full h-full object-cover rounded-3xl grayscale group-hover:grayscale-0 transition duration-1000 shadow-2xl border border-gray-700" alt="Vinyl" />
              <div className="absolute -bottom-6 -right-6 bg-vinyl-groove border border-gray-700 p-6 rounded-2xl shadow-2xl animate-bounce">
                 <span className="text-4xl">💿</span>
              </div>
@@ -74,7 +75,7 @@ export const Home: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 space-y-24">
         
         {/* Looking For Section */}
-        <section className="bg-gray-900/30 p-8 rounded-3xl border border-gray-800">
+        <section className="bg-gray-900/30 p-8 rounded-3xl border border-gray-800 animate-[fadeIn_0.5s]">
           <div className="flex justify-between items-end mb-8">
             <div>
               <h2 className="text-2xl font-bold text-white flex items-center gap-3">
@@ -90,7 +91,7 @@ export const Home: React.FC = () => {
                  <img src={req.imageUrl} className="w-16 h-16 bg-black rounded-xl object-contain group-hover:scale-105 transition" />
                  <div className="min-w-0 flex-1 flex flex-col justify-center">
                     <p className="text-white font-bold text-sm truncate">{req.title}</p>
-                    <p className="text-vinyl-accent text-[10px] truncate font-bold uppercase">{req.artist || 'Raridade'}</p>
+                    <p className="text-vinyl-accent text-[10px] truncate font-bold uppercase tracking-tighter">{req.artist || 'Raridade'}</p>
                  </div>
               </Link>
             ))}
@@ -99,7 +100,7 @@ export const Home: React.FC = () => {
 
         {/* Lotes - Mirroring Catalog Style */}
         {lotListings.length > 0 && (
-          <section>
+          <section className="animate-[fadeIn_0.6s]">
             <div className="flex justify-between items-end mb-8 border-b border-vinyl-accent/30 pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3 uppercase tracking-tighter">
@@ -107,7 +108,7 @@ export const Home: React.FC = () => {
                 </h2>
                 <p className="text-gray-500 text-sm mt-1">Pacotes especiais com descontos exclusivos.</p>
               </div>
-              <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase">Ver Mais</Link>
+              <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase hover:underline">Ver Mais</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {lotListings.map(l => renderListingCard(l, true))}
@@ -116,15 +117,15 @@ export const Home: React.FC = () => {
         )}
 
         {/* Mídias - Mirroring Catalog Style */}
-        <section>
+        <section className="animate-[fadeIn_0.7s]">
           <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
             <div>
-              <h2 className="text-2xl font-bold text-white uppercase tracking-tighter">
-                💿 Mídias & Colecionáveis
+              <h2 className="text-2xl font-bold text-white uppercase tracking-tighter flex items-center gap-3">
+                <span className="text-xl">💿</span> Mídias & Colecionáveis
               </h2>
               <p className="text-gray-500 text-sm mt-1">Recém adicionados ao catálogo de raridades.</p>
             </div>
-            <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase">Ir para Loja</Link>
+            <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase hover:underline">Ir para Loja</Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
             {mediaListings.map(l => renderListingCard(l))}
@@ -133,15 +134,15 @@ export const Home: React.FC = () => {
 
         {/* Equipamentos - Mirroring Catalog Style */}
         {equipmentListings.length > 0 && (
-          <section>
+          <section className="animate-[fadeIn_0.8s]">
             <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
               <div>
-                <h2 className="text-2xl font-bold text-white uppercase tracking-tighter">
-                  🎛️ Equipamentos de Som
+                <h2 className="text-2xl font-bold text-white uppercase tracking-tighter flex items-center gap-3">
+                  <span className="text-xl">🎛️</span> Equipamentos de Som
                 </h2>
                 <p className="text-gray-500 text-sm mt-1">Aparelhos revisados e acessórios HI-FI.</p>
               </div>
-              <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase">Ver Todos</Link>
+              <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase hover:underline">Ver Todos</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
               {equipmentListings.map(l => renderListingCard(l))}
@@ -150,18 +151,18 @@ export const Home: React.FC = () => {
         )}
 
         {/* Community Section */}
-        <section className="bg-vinyl-groove/40 p-10 rounded-3xl border border-gray-800 text-center">
-            <h2 className="text-2xl font-bold text-white mb-8">Nossa Comunidade</h2>
+        <section className="bg-vinyl-groove/40 p-10 rounded-3xl border border-gray-800 text-center animate-[fadeIn_0.9s]">
+            <h2 className="text-2xl font-bold text-white mb-8 uppercase tracking-widest">Nossa Comunidade</h2>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide justify-start sm:justify-center">
                {topSellers.map(u => (
-                 <div key={u.id} className="flex-shrink-0 w-44 bg-gray-900 border border-gray-800 rounded-3xl p-6 hover:border-vinyl-accent transition group shadow-2xl">
-                    <div className="w-20 h-20 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-bold text-vinyl-accent border-4 border-gray-800 group-hover:scale-110 transition shadow-inner">
+                 <div key={u.id} className="flex-shrink-0 w-44 bg-gray-900 border border-gray-800 rounded-3xl p-6 hover:border-vinyl-accent transition-all duration-300 group shadow-2xl">
+                    <div className="w-20 h-20 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-bold text-vinyl-accent border-4 border-gray-800 group-hover:scale-110 transition-transform shadow-inner">
                        {u.nickname.charAt(0)}
                     </div>
                     <h4 className="text-white font-bold text-sm truncate mb-1">{u.nickname}</h4>
                     <div className="flex justify-center items-center gap-1 mb-4">
                        <span className="text-yellow-500 text-xs">★</span>
-                       <span className="text-xs text-gray-400">{u.sellerRating > 0 ? u.sellerRating.toFixed(1) : 'S/R'}</span>
+                       <span className="text-xs text-gray-400">{u.sellerReviewCount > 0 ? u.sellerRating.toFixed(1) : 'S/R'}</span>
                     </div>
                     <span className="text-[9px] bg-gray-800 text-gray-500 px-3 py-1 rounded-full border border-gray-700 uppercase font-black tracking-widest">{u.role}</span>
                  </div>
