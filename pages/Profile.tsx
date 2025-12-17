@@ -57,10 +57,6 @@ export const Profile: React.FC = () => {
     if(confirm("Confirmar recebimento? Dinheiro será liberado na sua carteira após o desconto da taxa de 7%.")) confirmReceipt(id);
   };
 
-  const handleDelete = (id: string) => {
-     if(confirm("Excluir anúncio?")) deleteListing(id);
-  };
-
   const handleTogglePause = (id: string, currentStatus: string) => {
     if (confirm("Mudar status do anúncio?")) toggleListingAvailability(id);
   };
@@ -90,30 +86,42 @@ export const Profile: React.FC = () => {
           <div className="w-24 h-24 bg-vinyl-accent rounded-full flex items-center justify-center text-3xl font-bold text-black border-4 border-gray-700 shadow-lg">{currentUser.name.charAt(0)}</div>
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-2xl font-bold text-white">{currentUser.name}</h1>
-            <p className="text-gray-400 text-sm">{currentUser.nickname} • Colecionador Vinil D'oro</p>
+            <p className="text-gray-400 text-sm">{currentUser.nickname} • Membro Verificado</p>
           </div>
-          <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 min-w-[220px] text-center shadow-inner relative overflow-hidden group">
-             <div className="absolute top-0 right-0 p-2 opacity-5 text-4xl group-hover:scale-110 transition">💰</div>
-             <span className="text-gray-400 text-xs uppercase block font-bold mb-1">Saldo em Carteira</span>
+          
+          {/* Card de Saldo com Link Direto para Histórico */}
+          <button 
+            onClick={() => setActiveTab('HISTORY')}
+            className="bg-gray-900 p-4 rounded-xl border border-gray-700 min-w-[220px] text-center shadow-inner relative overflow-hidden group hover:border-vinyl-accent transition-all cursor-pointer"
+          >
+             <div className="absolute top-0 right-0 p-2 opacity-5 text-4xl group-hover:opacity-20 group-hover:scale-110 transition">📊</div>
+             <span className="text-gray-400 text-xs uppercase block font-bold mb-1 group-hover:text-vinyl-accent">Meu Saldo Atual</span>
              <span className="text-vinyl-gold font-bold text-3xl">R$ {currentUser.walletBalance.toFixed(2)}</span>
-          </div>
+             <p className="text-[9px] text-gray-600 mt-2 font-bold uppercase tracking-tighter group-hover:text-white">Clique para ver extrato ➜</p>
+          </button>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Mais destacada */}
         <div className="flex border-b border-gray-700 mb-8 overflow-x-auto scrollbar-hide bg-gray-900/30 rounded-t-xl px-2">
-          <button onClick={() => setActiveTab('SALES')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all ${activeTab === 'SALES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Minhas Vendas</button>
-          <button onClick={() => setActiveTab('PURCHASES')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all ${activeTab === 'PURCHASES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Minhas Compras</button>
-          <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all ${activeTab === 'HISTORY' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>📜 Histórico de Negociações</button>
-          <button onClick={() => setActiveTab('RESERVATIONS')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all ${activeTab === 'RESERVATIONS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Reservas</button>
-          <button onClick={() => setActiveTab('FINANCIAL')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all ${activeTab === 'FINANCIAL' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Config. Financeira</button>
-          <button onClick={() => setActiveTab('SETTINGS')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all ${activeTab === 'SETTINGS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>Ajustes</button>
+          <button onClick={() => setActiveTab('SALES')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'SALES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>📦 Minhas Vendas</button>
+          <button onClick={() => setActiveTab('PURCHASES')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'PURCHASES' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>🛒 Minhas Compras</button>
+          
+          {/* ABA DE HISTÓRICO COM DESTAQUE */}
+          <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'HISTORY' ? 'text-vinyl-accent border-b-2 border-vinyl-accent bg-vinyl-accent/5' : 'text-gray-400 hover:text-gray-200'}`}>
+            📊 EXTRATO & HISTÓRICO
+            {myTransactions.length > 0 && <span className="ml-2 bg-gray-800 text-[9px] px-1.5 py-0.5 rounded-full text-white">{myTransactions.length}</span>}
+          </button>
+          
+          <button onClick={() => setActiveTab('RESERVATIONS')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'RESERVATIONS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>⏳ Reservas</button>
+          <button onClick={() => setActiveTab('FINANCIAL')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'FINANCIAL' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>⚙️ Financeiro</button>
+          <button onClick={() => setActiveTab('SETTINGS')} className={`px-6 py-4 font-bold text-[10px] md:text-xs uppercase transition-all whitespace-nowrap ${activeTab === 'SETTINGS' ? 'text-vinyl-accent border-b-2 border-vinyl-accent' : 'text-gray-500 hover:text-gray-300'}`}>🛠️ Ajustes</button>
         </div>
 
         {/* Sales Tab */}
         {activeTab === 'SALES' && (
           <div className="space-y-4 animate-[fadeIn_0.3s]">
             {myListings.length === 0 ? (
-                <div className="p-20 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700 text-gray-500 italic">Você ainda não tem anúncios.</div>
+                <div className="p-20 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700 text-gray-500 italic">Você ainda não tem anúncios ativos.</div>
             ) : myListings.map(l => (
                 <div key={l.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 hover:border-gray-600 transition">
                     <img src={l.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded shadow-lg" />
@@ -152,7 +160,7 @@ export const Profile: React.FC = () => {
         {activeTab === 'PURCHASES' && (
           <div className="space-y-4 animate-[fadeIn_0.3s]">
              {myPurchases.length === 0 ? (
-                <div className="p-20 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700 text-gray-500 italic">Você ainda não comprou nada.</div>
+                <div className="p-20 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700 text-gray-500 italic">Nenhuma compra registrada.</div>
             ) : myPurchases.map(l => (
                 <div key={l.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 hover:border-gray-600 transition">
                     <img src={l.catalogItem.coverUrl} className="w-20 h-20 object-cover rounded shadow-lg" />
@@ -179,48 +187,58 @@ export const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* Negotiation History (The Ledger) */}
+        {/* NOVO HISTÓRICO REFORMULADO (EXTRATO) */}
         {activeTab === 'HISTORY' && (
            <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden animate-[fadeIn_0.3s] shadow-2xl">
-              <div className="p-6 border-b border-gray-700 bg-gray-900/50 flex justify-between items-center">
+              <div className="p-6 border-b border-gray-700 bg-gray-900/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                  <div>
                     <h2 className="text-white font-bold text-lg flex items-center gap-2">
-                       <span className="text-vinyl-accent text-xl">📜</span> Extrato Detalhado de Negociações
+                       <span className="text-vinyl-accent text-xl">📋</span> Extrato Financeiro & Histórico
                     </h2>
-                    <p className="text-xs text-gray-500 mt-1">Todos os débitos, créditos, taxas e descontos vinculados à sua conta.</p>
+                    <p className="text-xs text-gray-500 mt-1">Veja todos os seus débitos, créditos, taxas e descontos aplicados.</p>
                  </div>
-                 <div className="text-right">
-                    <p className="text-[10px] uppercase font-bold text-gray-500">Saldo Corrente</p>
-                    <p className="text-vinyl-accent font-mono font-bold">R$ {currentUser.walletBalance.toFixed(2)}</p>
+                 <div className="bg-black/40 px-4 py-2 rounded-lg border border-gray-700">
+                    <p className="text-[10px] uppercase font-bold text-gray-500 mb-1">Saldo em Carteira</p>
+                    <p className="text-vinyl-accent font-mono font-bold text-xl">R$ {currentUser.walletBalance.toFixed(2)}</p>
                  </div>
               </div>
               
-              <div className="divide-y divide-gray-700 max-h-[600px] overflow-y-auto custom-scrollbar">
+              <div className="divide-y divide-gray-700 max-h-[650px] overflow-y-auto custom-scrollbar">
                  {myTransactions.length === 0 ? (
-                    <div className="p-20 text-center text-gray-500 italic bg-vinyl-black/20">Nenhuma transação financeira registrada até o momento.</div>
+                    <div className="p-24 text-center">
+                       <span className="text-5xl block mb-4 grayscale opacity-30">📑</span>
+                       <p className="text-gray-500 italic">Nenhuma movimentação financeira encontrada.</p>
+                       <p className="text-[10px] text-gray-600 mt-2">Transações de compras, vendas e taxas aparecerão aqui.</p>
+                    </div>
                  ) : (
                     myTransactions.map(t => (
-                       <div key={t.id} className="p-4 hover:bg-gray-700/30 transition flex justify-between items-center group">
-                          <div className="flex items-center gap-4">
-                             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shadow-inner ${t.type === 'CREDIT' ? 'bg-green-900/40 text-green-400 border border-green-800/50' : 'bg-red-900/40 text-red-400 border border-red-800/50'}`}>
-                                {t.type === 'CREDIT' ? '+' : '-'}
+                       <div key={t.id} className="p-5 hover:bg-gray-700/30 transition flex justify-between items-center group">
+                          <div className="flex items-center gap-5">
+                             {/* Ícone de Fluxo */}
+                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg shadow-lg ${t.type === 'CREDIT' ? 'bg-green-900/30 text-green-400 border border-green-800/40' : 'bg-red-900/30 text-red-400 border border-red-800/40'}`}>
+                                {t.type === 'CREDIT' ? '↙' : '↗'}
                              </div>
                              <div>
                                 <p className="text-sm font-bold text-white group-hover:text-vinyl-accent transition-colors">{t.description}</p>
-                                <div className="flex gap-2 items-center mt-1">
-                                   <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest ${t.category === 'TAXA_PLATAFORMA' ? 'bg-orange-900/50 text-orange-400 border border-orange-800' : t.category === 'COMPRA' ? 'bg-blue-900/50 text-blue-400' : 'bg-gray-900 text-gray-400'}`}>
+                                <div className="flex flex-wrap gap-2 items-center mt-2">
+                                   <span className={`text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest border ${
+                                      t.category === 'TAXA_PLATAFORMA' ? 'bg-orange-900/40 text-orange-400 border-orange-800' : 
+                                      t.category === 'COMPRA' ? 'bg-blue-900/40 text-blue-400 border-blue-800' : 
+                                      t.category === 'VENDA' ? 'bg-green-900/40 text-green-400 border-green-800' :
+                                      'bg-gray-900 text-gray-400 border-gray-700'
+                                   }`}>
                                       {t.category.replace('_', ' ')}
                                    </span>
-                                   <span className="text-[10px] text-gray-500 font-mono">{new Date(t.createdAt).toLocaleString('pt-BR')}</span>
+                                   <span className="text-[10px] text-gray-500 font-mono bg-gray-900/50 px-1.5 py-0.5 rounded">{new Date(t.createdAt).toLocaleString('pt-BR')}</span>
                                 </div>
                              </div>
                           </div>
                           <div className="text-right">
-                             <p className={`text-base font-mono font-bold ${t.type === 'CREDIT' ? 'text-green-400' : 'text-red-400'}`}>
+                             <p className={`text-lg font-mono font-bold ${t.type === 'CREDIT' ? 'text-green-400' : 'text-red-400'}`}>
                                 {t.type === 'CREDIT' ? '+' : '-'} R$ {t.amount.toFixed(2)}
                              </p>
                              {t.listingId && (
-                                <span className="text-[8px] text-gray-600 block mt-1 uppercase font-black">REF: {t.listingId.split('-')[1]}</span>
+                                <Link to={`/listing/${t.listingId}`} className="text-[9px] text-gray-600 hover:text-vinyl-accent block mt-1 uppercase font-black transition">REF: {t.listingId.split('-')[1]} ➜</Link>
                              )}
                           </div>
                        </div>
@@ -229,8 +247,10 @@ export const Profile: React.FC = () => {
               </div>
               
               <div className="bg-gray-900 p-4 border-t border-gray-700 flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                 <span>Sistema de Garantia Vinil D'oro</span>
-                 <span>Total de {myTransactions.length} registros</span>
+                 <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span> Sistema de Transações Seguro
+                 </span>
+                 <span className="text-white bg-gray-800 px-3 py-1 rounded-full">{myTransactions.length} Lançamentos</span>
               </div>
            </div>
         )}
@@ -287,7 +307,7 @@ export const Profile: React.FC = () => {
                 <h3 className="text-white font-bold mb-4 flex items-center gap-2">
                    <span className="text-vinyl-accent">📥</span> Simular Depósito
                 </h3>
-                <p className="text-xs text-gray-500 mb-4">Para fins de teste, você pode adicionar saldo fictício à sua carteira.</p>
+                <p className="text-xs text-gray-500 mb-4">Adicione saldo fictício para testar as funcionalidades de compra e reserva.</p>
                 <button onClick={() => depositFunds(100)} className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-4 rounded-xl text-sm uppercase tracking-widest shadow-xl transition transform active:scale-95">Depositar R$ 100,00</button>
              </div>
           </div>

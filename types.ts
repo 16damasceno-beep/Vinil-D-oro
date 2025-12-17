@@ -85,7 +85,7 @@ export interface PaymentMethod {
 export interface Transaction {
   id: string;
   type: 'DEBIT' | 'CREDIT';
-  category: 'COMPRA' | 'VENDA' | 'RESERVA' | 'DEPOSITO' | 'SAQUE' | 'TAXA_PLATAFORMA' | 'FRETE';
+  category: 'COMPRA' | 'VENDA' | 'RESERVA' | 'DEPOSITO' | 'SAQUE' | 'TAXA_PLATAFORMA' | 'FRETE' | 'ESTORNO';
   amount: number;
   description: string;
   listingId?: string;
