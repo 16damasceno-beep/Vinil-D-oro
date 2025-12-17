@@ -24,6 +24,20 @@ export const ListingDetails: React.FC = () => {
   if (!listing || !seller) {
     return <div className="text-white text-center mt-20">Anúncio não encontrado.</div>;
   }
+
+  // Se o item estiver indisponível e o usuário logado não for o vendedor, bloqueia o acesso
+  if (listing.status === 'INDISPONÍVEL' && currentUser?.id !== listing.sellerId) {
+    return (
+        <div className="min-h-screen bg-vinyl-black flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-gray-900 p-8 rounded-xl border border-gray-700 text-center">
+                <div className="text-5xl mb-4">⏸️</div>
+                <h2 className="text-2xl font-bold text-white mb-2">Anúncio Pausado</h2>
+                <p className="text-gray-400 mb-6">O vendedor pausou a oferta deste item temporariamente. Tente novamente mais tarde.</p>
+                <Link to="/catalog" className="inline-block bg-vinyl-accent text-black font-bold px-6 py-2 rounded hover:bg-yellow-600 transition">Ver Outros Discos</Link>
+            </div>
+        </div>
+    );
+  }
   
   const galleryImages = [listing.catalogItem.coverUrl, ...listing.userImages];
   const mainImage = galleryImages[activeImageIndex];
@@ -46,6 +60,7 @@ export const ListingDetails: React.FC = () => {
   };
 
   const getButtonText = () => {
+    if (listing.status === 'INDISPONÍVEL') return 'ANÚNCIO PAUSADO';
     if (listing.status === 'VENDIDO_FORA') return 'VENDIDO FORA DO SITE';
     if (listing.status !== 'DISPONÍVEL' && listing.status !== 'RESERVADO') return 'VENDIDO / FINALIZADO';
     return isLot ? 'COMPRAR LOTE COMPLETO' : 'COMPRAR COM SEGURANÇA';
@@ -112,6 +127,9 @@ export const ListingDetails: React.FC = () => {
             <div className="grid gap-3">
                <button onClick={handleBuyClick} disabled={listing.status !== 'DISPONÍVEL'} className="w-full py-4 rounded font-bold text-lg bg-vinyl-accent hover:bg-yellow-600 text-black transition disabled:opacity-50">{getButtonText()}</button>
                <button onClick={() => setIsChatOpen(true)} className="w-full py-3 rounded font-bold border border-blue-500 text-blue-400 hover:bg-blue-900/20">Chat com Vendedor</button>
+               {listing.status === 'INDISPONÍVEL' && currentUser?.id === listing.sellerId && (
+                   <p className="text-xs text-center text-yellow-500 font-bold mt-2">Você pausou este anúncio. Reative-o no seu perfil para receber ofertas.</p>
+               )}
             </div>
           </div>
 

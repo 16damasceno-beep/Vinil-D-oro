@@ -43,6 +43,7 @@ interface StoreContextType {
   updateUser: (updatedUser: User) => void; 
   adminCreateUser: (newUser: User) => void; 
   sendMessage: (listingId: string, receiverId: string, text: string) => void;
+  toggleListingAvailability: (listingId: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -150,7 +151,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setMessages(prev => [...prev, newMessage]);
     dbUpsert('messages', newMessage);
 
-    // Notify Receiver
     const receiver = users.find(u => u.id === receiverId);
     if (receiver) {
       const listing = listings.find(l => l.id === listingId);
@@ -235,6 +235,19 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbUpsert('listings', updatedListing);
   };
 
+  const toggleListingAvailability = (id: string) => {
+    const listing = listings.find(l => l.id === id);
+    if (!listing) return;
+    
+    // Only allow toggling if current status is DISPONÍVEL or INDISPONÍVEL
+    if (listing.status !== 'DISPONÍVEL' && listing.status !== 'INDISPONÍVEL') return;
+
+    const newStatus: ListingStatus = listing.status === 'DISPONÍVEL' ? 'INDISPONÍVEL' : 'DISPONÍVEL';
+    const updated = { ...listing, status: newStatus };
+    setListings(prev => prev.map(l => l.id === id ? updated : l));
+    dbUpsert('listings', updated);
+  };
+
   const updateUserFinancials = (bankInfo?: BankInfo, paymentMethod?: PaymentMethod) => {
     if (!currentUser) return;
     const userToUpdate = users.find(u => u.id === currentUser.id);
@@ -301,7 +314,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     sendReservationDecisionNotification(buyer, seller, catalogItem, true);
   };
 
-  // Fixed missing rejectReservation function
   const rejectReservation = (reservationId: string) => {
     const res = reservations.find(r => r.id === reservationId);
     if (!res || res.status !== 'PENDENTE') return;
@@ -324,7 +336,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     sendReservationDecisionNotification(buyer, seller, catalogItem, false);
   };
 
-  // Fixed missing cancelReservation function
   const cancelReservation = (reservationId: string) => {
     const res = reservations.find(r => r.id === reservationId);
     if (!res) return;
@@ -339,7 +350,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dbUpsert('listings', updatedListing);
   };
 
-  // Fixed missing extendReservation function
   const extendReservation = (reservationId: string, extraDays: number) => {
     const res = reservations.find(r => r.id === reservationId);
     if (!res || !res.expiresAt) return;
@@ -377,7 +387,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!listing) return;
     const catalogItem = catalog.find(c => c.id === listing.catalogItemId);
 
-    // LOGICA DE LOTE: Se comprar um lote, todos os itens inclusos morrem
     if (catalogItem?.itemType === ItemType.LOTE && listing.lotConfig) {
        const subListingIds = listing.lotConfig.listingIds;
        setListings(prev => prev.map(l => {
@@ -386,10 +395,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           }
           return l;
        }));
-       // Note: In real app would batch upsert
     }
 
-    // LOGICA DE ITEM EM LOTE: Se comprar um item que está em um lote, o lote é quebrado/atualizado
     const activeLotsWithThisItem = listings.filter(l => 
         l.status === 'DISPONÍVEL' && 
         l.lotConfig && 
@@ -401,10 +408,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const remainingIds = lotListing.lotConfig!.listingIds.filter(id => id !== itemToRemove.id);
         
         if (remainingIds.length === 0) {
-            // Lote vazio, deletar ou desativar
             setListings(prev => prev.map(l => l.id === lotListing.id ? { ...l, status: 'VENDIDO_FORA' as const } : l));
         } else {
-            // Subtrair valor proporcionalmente
             const ratio = itemToRemove.price / lotListing.lotConfig!.originalTotalPrice;
             const priceReduction = lotListing.price * ratio;
             const newLotPrice = Math.max(0, lotListing.price - priceReduction);
@@ -420,7 +425,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             
             setListings(prev => prev.map(l => l.id === lotListing.id ? updatedLotListing : l));
 
-            // Notificar Vendedor
             const seller = users.find(u => u.id === lotListing.sellerId);
             if (seller) {
                 const upSeller = {
@@ -541,7 +545,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       buyListing, markAsShipped, confirmReceipt, markAsSoldOutside, addReview, toggleFavorite,
       markNotificationsAsRead, getEnrichedListings, getUserReviews, requestReservation,
       approveReservation, rejectReservation, cancelReservation, extendReservation,
-      updateUserFinancials, depositFunds, deleteUser, deleteListing, updateUser, adminCreateUser, sendMessage
+      updateUserFinancials, depositFunds, deleteUser, deleteListing, updateUser, adminCreateUser, sendMessage,
+      toggleListingAvailability
     }}>
       {children}
     </StoreContext.Provider>

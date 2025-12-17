@@ -126,7 +126,7 @@ export interface CatalogItem {
   tracks?: Track[]; 
 }
 
-export type ListingStatus = 'DISPONÍVEL' | 'RESERVADO' | 'AGUARDANDO_ENVIO' | 'ENVIADO' | 'CONCLUÍDO' | 'VENDIDO_FORA';
+export type ListingStatus = 'DISPONÍVEL' | 'INDISPONÍVEL' | 'RESERVADO' | 'AGUARDANDO_ENVIO' | 'ENVIADO' | 'CONCLUÍDO' | 'VENDIDO_FORA';
 
 export interface Lot {
   id: string;
