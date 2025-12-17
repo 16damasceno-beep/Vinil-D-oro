@@ -138,7 +138,7 @@ export const SellVinyl: React.FC = () => {
       ...manualForm,
       year: parseInt(manualForm.year) || 0,
       coverUrl: finalCoverUrl,
-      format: manualForm.itemType, // Importante: Garante que o formato siga o tipo selecionado
+      format: manualForm.itemType, 
       tracks: manualForm.tracks.filter(t => t.title)
     };
     addToCatalog(newItem);
@@ -253,7 +253,6 @@ export const SellVinyl: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* CORREÇÃO AQUI: Campos de Tipo de Item e Selo agora totalmente editáveis */}
                       <div className="grid grid-cols-2 gap-3 p-3 bg-vinyl-accent/5 rounded-lg border border-vinyl-accent/20">
                         <div>
                           <label className="text-[10px] text-vinyl-accent uppercase font-black mb-1 ml-1 block">Tipo / Formato</label>

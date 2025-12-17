@@ -54,6 +54,7 @@ export const ListingDetails: React.FC = () => {
     if (!currentUser) { navigate('/login'); return; }
     if (listing.sellerId === currentUser.id) return alert("Você não pode reservar seu próprio item.");
     
+    // Regra de precificação solicitada anteriormente
     const cost = listing.catalogItem.itemType === ItemType.EQUIPMENT ? 40 : 10;
     if (currentUser.walletBalance < cost) {
       return alert(`Saldo insuficiente para reserva. Você precisa de R$ ${cost.toFixed(2)} em sua carteira.`);

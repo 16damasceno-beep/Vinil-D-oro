@@ -19,33 +19,28 @@ const fileToBase64 = (file: File): Promise<string> => {
 export const LookingFor: React.FC = () => {
   const { wantRequests, currentUser, addWantRequest, deleteWantRequest, wantResponses } = useStore();
   
-  // UI States
   const [isPosting, setIsPosting] = useState(false);
   const [searchMode, setSearchMode] = useState<'AUTO' | 'MANUAL'>('AUTO');
   const [searchCategory, setSearchCategory] = useState<'MEDIA' | 'EQUIPMENT'>('MEDIA');
   
-  // Search States
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<CatalogItem[]>([]);
   
-  // Form State
   const [form, setForm] = useState({ title: '', artist: '', description: '', image: '' as string });
   const [file, setFile] = useState<File | null>(null);
 
+  // EXIBE APENAS PEDIDOS ABERTOS
   const activeRequests = wantRequests.filter(req => req.status === 'ABERTO');
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm) return;
-
     const discogsToken = localStorage.getItem('discogs_token') || '';
-
     setIsSearching(true);
     setSearchResults([]);
 
     if (searchCategory === 'MEDIA') {
-      // 1. Try Discogs
       if (discogsToken) {
         const discogsResults = await searchDiscogs(searchTerm, discogsToken);
         if (discogsResults.length > 0) {
@@ -54,8 +49,6 @@ export const LookingFor: React.FC = () => {
           return;
         }
       }
-
-      // 2. Try AI
       const aiResult = await getAlbumDetails(searchTerm);
       if (aiResult) {
          const newItem: any = {
@@ -68,7 +61,6 @@ export const LookingFor: React.FC = () => {
          setSearchResults([newItem]);
       }
     } else {
-      // Equipment Search
       const aiResult = await getEquipmentDetails(searchTerm);
       if (aiResult) {
          const newItem: any = {
@@ -91,7 +83,7 @@ export const LookingFor: React.FC = () => {
       description: item.description || '',
       image: item.coverUrl
     });
-    setSearchMode('MANUAL'); // Show form to add final description
+    setSearchMode('MANUAL');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,7 +138,6 @@ export const LookingFor: React.FC = () => {
         {isPosting && (
           <div className="animate-[fadeIn_0.3s]">
             <DiscogsTokenManager />
-            
             <div className="bg-gray-900 p-6 rounded-2xl border border-vinyl-accent/30 mb-12 shadow-2xl">
               <div className="flex gap-4 mb-6 border-b border-gray-800 pb-4">
                  <button onClick={() => setSearchMode('AUTO')} className={`px-4 py-1 rounded-full text-xs font-bold transition ${searchMode === 'AUTO' ? 'bg-vinyl-accent text-black' : 'text-gray-400 hover:text-gray-300'}`}>Busca Automática</button>
@@ -159,7 +150,6 @@ export const LookingFor: React.FC = () => {
                       <button onClick={() => setSearchCategory('MEDIA')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold border transition ${searchCategory === 'MEDIA' ? 'bg-purple-900/50 text-purple-200 border-purple-500' : 'bg-gray-800 text-gray-500 border-gray-700'}`}>💿 Discos/Mídia</button>
                       <button onClick={() => setSearchCategory('EQUIPMENT')} className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold border transition ${searchCategory === 'EQUIPMENT' ? 'bg-blue-900/50 text-blue-200 border-blue-500' : 'bg-gray-800 text-gray-500 border-gray-700'}`}>🎛️ Aparelhos</button>
                   </div>
-                  
                   <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl mx-auto">
                     <input 
                       type="text" 
@@ -172,7 +162,6 @@ export const LookingFor: React.FC = () => {
                       {isSearching ? 'Buscando...' : 'Buscar'}
                     </button>
                   </form>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-8">
                     {searchResults.map(item => (
                       <div key={item.id} onClick={() => handleSelectResult(item)} className="cursor-pointer bg-gray-800 p-3 rounded-xl border border-gray-700 hover:border-vinyl-accent flex gap-3 group transition">
@@ -204,7 +193,6 @@ export const LookingFor: React.FC = () => {
                         <textarea placeholder="Ex: Procuro prensagem nacional, aceito com riscos leves, pago até R$ 200..." className="w-full bg-gray-800 text-white p-3 rounded-xl border border-gray-700 h-32 resize-none" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
                       </div>
                     </div>
-
                     <div className="space-y-4">
                       <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Foto de Referência</label>
                       <div className="border-2 border-dashed border-gray-700 rounded-2xl h-64 flex flex-col items-center justify-center relative overflow-hidden group bg-gray-800/50">
@@ -228,7 +216,6 @@ export const LookingFor: React.FC = () => {
                         setForm({...form, image: e.target.value});
                         setFile(null);
                       }} />
-                      
                       <div className="flex gap-3 pt-4">
                          <button type="button" onClick={() => setSearchMode('AUTO')} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition">Voltar</button>
                          <button type="submit" className="flex-[2] bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded-xl shadow-xl shadow-yellow-900/20 transition">Publicar Pedido</button>
@@ -241,7 +228,6 @@ export const LookingFor: React.FC = () => {
           </div>
         )}
 
-        {/* Want Requests List */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {activeRequests.length === 0 ? (
             <div className="col-span-full py-24 text-center text-gray-500 bg-gray-900/50 rounded-3xl border border-dashed border-gray-800">
@@ -268,7 +254,6 @@ export const LookingFor: React.FC = () => {
                    </div>
                    <div className="p-5 flex-1 flex flex-col">
                       <p className="text-gray-400 text-xs line-clamp-3 italic mb-6 leading-relaxed">"{req.description}"</p>
-                      
                       <div className="mt-auto flex justify-between items-center pt-4 border-t border-gray-800">
                          <div className="flex items-center gap-2">
                             <div className="w-6 h-6 bg-vinyl-accent rounded-full flex items-center justify-center text-[10px] font-bold text-black">{req.buyerName.charAt(0)}</div>

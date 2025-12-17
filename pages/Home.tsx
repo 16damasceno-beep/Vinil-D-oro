@@ -11,13 +11,11 @@ export const Home: React.FC = () => {
     .filter(l => l.status === 'DISPONÍVEL')
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  // Separação rigorosa por tipo de item
   const lotListings = allActiveListings.filter(l => l.catalogItem.itemType === ItemType.LOTE).slice(0, 4);
   const equipmentListings = allActiveListings.filter(l => l.catalogItem.itemType === ItemType.EQUIPMENT).slice(0, 5);
   const mediaListings = allActiveListings.filter(l => l.catalogItem.itemType !== ItemType.EQUIPMENT && l.catalogItem.itemType !== ItemType.LOTE).slice(0, 10);
 
   const latestWants = wantRequests.filter(r => r.status === 'ABERTO').slice(0, 4);
-  const topSellers = users.filter(u => u.sellerReviewCount > 0 || u.role !== 'COMPRADOR').slice(0, 6);
 
   const renderListingCard = (listing: any, highlight: boolean = false) => (
     <Link 
@@ -47,7 +45,6 @@ export const Home: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-vinyl-black pb-20">
-      {/* Hero Section */}
       <div className="relative bg-gray-900 overflow-hidden border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 py-20 lg:py-32 flex flex-col lg:flex-row items-center gap-12">
           <div className="flex-1 text-center lg:text-left space-y-6 animate-[fadeIn_0.5s]">
@@ -73,8 +70,6 @@ export const Home: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 space-y-24">
-        
-        {/* Looking For Section */}
         <section className="bg-gray-900/30 p-8 rounded-3xl border border-gray-800 animate-[fadeIn_0.5s]">
           <div className="flex justify-between items-end mb-8">
             <div>
@@ -98,7 +93,6 @@ export const Home: React.FC = () => {
           </div>
         </section>
 
-        {/* Lotes - Mirroring Catalog Style */}
         {lotListings.length > 0 && (
           <section className="animate-[fadeIn_0.6s]">
             <div className="flex justify-between items-end mb-8 border-b border-vinyl-accent/30 pb-4">
@@ -116,7 +110,6 @@ export const Home: React.FC = () => {
           </section>
         )}
 
-        {/* Mídias - Mirroring Catalog Style */}
         <section className="animate-[fadeIn_0.7s]">
           <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
             <div>
@@ -132,7 +125,6 @@ export const Home: React.FC = () => {
           </div>
         </section>
 
-        {/* Equipamentos - Mirroring Catalog Style */}
         {equipmentListings.length > 0 && (
           <section className="animate-[fadeIn_0.8s]">
             <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
@@ -149,27 +141,6 @@ export const Home: React.FC = () => {
             </div>
           </section>
         )}
-
-        {/* Community Section */}
-        <section className="bg-vinyl-groove/40 p-10 rounded-3xl border border-gray-800 text-center animate-[fadeIn_0.9s]">
-            <h2 className="text-2xl font-bold text-white mb-8 uppercase tracking-widest">Nossa Comunidade</h2>
-            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide justify-start sm:justify-center">
-               {topSellers.map(u => (
-                 <div key={u.id} className="flex-shrink-0 w-44 bg-gray-900 border border-gray-800 rounded-3xl p-6 hover:border-vinyl-accent transition-all duration-300 group shadow-2xl">
-                    <div className="w-20 h-20 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-bold text-vinyl-accent border-4 border-gray-800 group-hover:scale-110 transition-transform shadow-inner">
-                       {u.nickname.charAt(0)}
-                    </div>
-                    <h4 className="text-white font-bold text-sm truncate mb-1">{u.nickname}</h4>
-                    <div className="flex justify-center items-center gap-1 mb-4">
-                       <span className="text-yellow-500 text-xs">★</span>
-                       <span className="text-xs text-gray-400">{u.sellerReviewCount > 0 ? u.sellerRating.toFixed(1) : 'S/R'}</span>
-                    </div>
-                    <span className="text-[9px] bg-gray-800 text-gray-500 px-3 py-1 rounded-full border border-gray-700 uppercase font-black tracking-widest">{u.role}</span>
-                 </div>
-               ))}
-            </div>
-        </section>
-
       </div>
     </div>
   );

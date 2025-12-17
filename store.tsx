@@ -431,7 +431,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
 
-    // Lógica principal de compra
     const updatedListing = { 
         ...listing, 
         status: 'AGUARDANDO_ENVIO' as const, 
@@ -450,7 +449,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         dbUpsert('users', upSeller);
     }
 
-    // CORREÇÃO: Finalizar o 'Procuro Por' se esta compra veio de uma resposta de pedido
+    // FINALIZAÇÃO AUTOMÁTICA DO PEDIDO NO "PROCURO POR"
     const associatedResponse = wantResponses.find(res => res.listingId === listingId);
     if (associatedResponse) {
       const associatedRequest = wantRequests.find(req => req.id === associatedResponse.requestId);
