@@ -85,7 +85,7 @@ export interface PaymentMethod {
 export interface Transaction {
   id: string;
   type: 'DEBIT' | 'CREDIT';
-  category: 'COMPRA' | 'VENDA' | 'RESERVA' | 'DEPOSITO' | 'SAQUE' | 'TAXA_PLATAFORMA';
+  category: 'COMPRA' | 'VENDA' | 'RESERVA' | 'DEPOSITO' | 'SAQUE' | 'TAXA_PLATAFORMA' | 'FRETE';
   amount: number;
   description: string;
   listingId?: string;
@@ -105,7 +105,7 @@ export interface User {
   walletBalance: number;
   favorites: string[];
   notifications: AppNotification[];
-  transactions: Transaction[]; // Log financeiro
+  transactions: Transaction[]; 
   bankInfo?: BankInfo;
   savedPaymentMethods: PaymentMethod[];
   sellerRating: number;
@@ -187,7 +187,7 @@ export interface WantResponse {
   requestId: string;
   sellerId: string;
   sellerName: string;
-  listingId?: string; // Se o vendedor já tiver postado
+  listingId?: string; 
   price: number;
   condition: VinylCondition;
   message: string;

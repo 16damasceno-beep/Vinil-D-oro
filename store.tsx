@@ -559,6 +559,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const fee = l.price * 0.07;
     const sellerEarnings = (l.price - fee) + (l.finalShippingCost || 0);
     
+    // TRANSATIONS LOGS FOR SELLER
     const sellCredit: Transaction = {
       id: `t-sell-c-${Date.now()}`,
       type: 'CREDIT',
@@ -579,15 +580,18 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       createdAt: new Date().toISOString()
     };
 
-    const shippingRefund: Transaction | null = l.finalShippingCost && l.finalShippingCost > 0 ? {
-       id: `t-ship-r-${Date.now()}`,
-       type: 'CREDIT',
-       category: 'VENDA',
-       amount: l.finalShippingCost,
-       description: `Reembolso de Frete: ${cat?.title || 'Item'}`,
-       listingId: l.id,
-       createdAt: new Date().toISOString()
-    } : null;
+    let shippingRefund: Transaction | null = null;
+    if (l.finalShippingCost && l.finalShippingCost > 0) {
+      shippingRefund = {
+         id: `t-ship-r-${Date.now()}`,
+         type: 'CREDIT',
+         category: 'FRETE',
+         amount: l.finalShippingCost,
+         description: `Reembolso de Frete: ${cat?.title || 'Item'}`,
+         listingId: l.id,
+         createdAt: new Date().toISOString()
+      };
+    }
 
     const updated = { ...l, status: 'CONCLUÍDO' as const };
     setListings(prev => prev.map(listing => listing.id === id ? updated : listing));
@@ -595,11 +599,14 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const seller = users.find(u => u.id === l.sellerId);
     if(seller) {
-        const newTrans = [sellCredit, platformFee, ...(shippingRefund ? [shippingRefund] : []), ...(seller.transactions || [])];
+        // Compose final list of transactions to prepend
+        const newTrans = [sellCredit, platformFee];
+        if (shippingRefund) newTrans.push(shippingRefund);
+        
         const upSeller = { 
           ...seller, 
           walletBalance: seller.walletBalance + sellerEarnings,
-          transactions: newTrans,
+          transactions: [...newTrans, ...(seller.transactions || [])],
           notifications: [{ id: `n-sale-comp-${Date.now()}`, message: `Recebimento confirmado! R$ ${sellerEarnings.toFixed(2)} creditados (Líquido).`, read: false, createdAt: new Date().toISOString() }, ...seller.notifications]
         };
         setUsers(prev => prev.map(u => u.id === seller.id ? upSeller : u));
