@@ -7,7 +7,6 @@ import { ItemType } from '../types';
 export const Home: React.FC = () => {
   const { getEnrichedListings, currentUser, wantRequests, users } = useStore();
   
-  // Get and Filter Listings
   const allActiveListings = getEnrichedListings()
     .filter(l => l.status === 'DISPONÍVEL')
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -16,13 +15,8 @@ export const Home: React.FC = () => {
   const equipmentListings = allActiveListings.filter(l => l.catalogItem.itemType === ItemType.EQUIPMENT).slice(0, 5);
   const mediaListings = allActiveListings.filter(l => l.catalogItem.itemType !== ItemType.EQUIPMENT && l.catalogItem.itemType !== ItemType.LOTE).slice(0, 10);
 
-  // Latest Want Requests (Procuro Por)
   const latestWants = wantRequests.filter(r => r.status === 'ABERTO').slice(0, 4);
-  
-  // Featured Users (Sellers)
-  const topSellers = users
-    .filter(u => u.sellerReviewCount > 0 || u.role !== 'COMPRADOR')
-    .slice(0, 6);
+  const topSellers = users.filter(u => u.sellerReviewCount > 0 || u.role !== 'COMPRADOR').slice(0, 6);
 
   const renderListingCard = (listing: any, highlight: boolean = false) => (
     <Link 
@@ -31,11 +25,7 @@ export const Home: React.FC = () => {
       className={`block group rounded-lg overflow-hidden border transition shadow-lg ${highlight ? 'bg-vinyl-accent/5 border-vinyl-accent/50' : 'bg-gray-800 border-gray-700 hover:border-vinyl-accent'}`}
     >
       <div className="relative pb-[100%] overflow-hidden">
-        <img 
-          src={listing.catalogItem.coverUrl} 
-          alt={listing.catalogItem.title} 
-          className="absolute h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" 
-        />
+        <img src={listing.catalogItem.coverUrl} alt={listing.catalogItem.title} className="absolute h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />
         {listing.catalogItem.itemType === ItemType.LOTE && (
           <div className="absolute top-0 left-0 bg-vinyl-accent text-black text-[10px] font-bold px-2 py-1 rounded-br z-10">🎁 LOTE</div>
         )}
@@ -44,10 +34,10 @@ export const Home: React.FC = () => {
         </div>
       </div>
       <div className="p-4">
-        <h3 className="font-bold text-white truncate text-lg">{listing.catalogItem.title}</h3>
-        <p className="text-sm text-vinyl-accent truncate">{listing.catalogItem.artist}</p>
+        <h3 className="font-bold text-white truncate text-lg leading-tight">{listing.catalogItem.title}</h3>
+        <p className="text-sm text-vinyl-accent truncate font-medium">{listing.catalogItem.artist}</p>
         <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-700">
-          <span className="text-xs text-gray-400">R$ individual</span>
+          <span className="text-[10px] text-gray-500 uppercase font-bold">{listing.catalogItem.itemType.split(' ')[0]}</span>
           <span className="text-xl font-bold text-white">R$ {listing.price.toFixed(2)}</span>
         </div>
       </div>
@@ -58,111 +48,66 @@ export const Home: React.FC = () => {
     <div className="min-h-screen bg-vinyl-black pb-20">
       {/* Hero Section */}
       <div className="relative bg-gray-900 overflow-hidden border-b border-gray-800">
-        <div className="max-w-7xl mx-auto">
-          <div className="relative z-10 pb-8 bg-gray-900 lg:bg-transparent sm:pb-16 md:pb-20 lg:max-w-2xl lg:w-full lg:pb-28 xl:pb-32">
-            <main className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28">
-              <div className="sm:text-center lg:text-left">
-                <h1 className="text-4xl tracking-tight font-extrabold text-white sm:text-5xl md:text-6xl flex flex-col sm:flex-row items-center sm:justify-center lg:justify-start gap-4 animate-[fadeIn_0.5s]">
-                  <svg className="h-16 w-16 sm:h-20 sm:w-20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                      <linearGradient id="goldGradientHero" x1="0" y1="0" x2="100" y2="100">
-                        <stop offset="0%" stopColor="#B8860B" />
-                        <stop offset="50%" stopColor="#FFD700" />
-                        <stop offset="100%" stopColor="#B8860B" />
-                      </linearGradient>
-                    </defs>
-                    <g className="animate-[spin_6s_linear_infinite]" style={{ transformOrigin: '50px 50px' }}>
-                        <circle cx="50" cy="50" r="42" fill="url(#goldGradientHero)" stroke="#111" strokeWidth="2" />
-                        <circle cx="50" cy="50" r="16" fill="#111" />
-                        <circle cx="50" cy="50" r="3" fill="#B8860B" />
-                    </g>
-                    <g>
-                       <circle cx="90" cy="10" r="6" fill="#111" stroke="#B8860B" strokeWidth="1" />
-                       <path d="M90 10 L 70 36" stroke="#E5E7EB" strokeWidth="3" fill="none" strokeLinecap="round" />
-                    </g>
-                  </svg>
-                  <span className="block xl:inline bg-clip-text text-transparent bg-gradient-to-r from-vinyl-accent to-yellow-200">Vinil D'oro</span>
-                </h1>
-                <h2 className="mt-4 text-2xl sm:text-3xl font-bold text-gray-400 block max-w-lg">
-                  O som autêntico em suas mãos. <span className="text-vinyl-accent">Lotes, Mídias e Raridades.</span>
-                </h2>
-                <div className="mt-10 sm:flex sm:justify-center lg:justify-start gap-4">
-                  <Link to="/catalog" className="flex items-center justify-center px-10 py-4 border border-transparent text-base font-bold rounded-xl text-black bg-vinyl-accent hover:bg-yellow-600 transition transform hover:scale-105 shadow-xl shadow-yellow-900/20">
-                    Explorar Catálogo
-                  </Link>
-                  <Link to="/procuro-por" className="flex items-center justify-center px-10 py-4 border-2 border-vinyl-accent text-base font-bold rounded-xl text-vinyl-accent hover:bg-vinyl-accent hover:text-black transition transform hover:scale-105">
-                    Estou Procurando...
-                  </Link>
-                </div>
-              </div>
-            </main>
+        <div className="max-w-7xl mx-auto px-4 py-20 lg:py-32 flex flex-col lg:flex-row items-center gap-12">
+          <div className="flex-1 text-center lg:text-left space-y-6 animate-[fadeIn_0.5s]">
+            <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tighter leading-none">
+              O Som Autêntico <br/>
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-vinyl-accent to-yellow-200">Em Suas Mãos.</span>
+            </h1>
+            <p className="text-xl text-gray-400 max-w-lg mx-auto lg:mx-0">
+               Grupo seleto para venda de Vinis, Laser Discs e Equipamentos raros. <span className="text-white">Negocie direto com colecionadores.</span>
+            </p>
+            <div className="flex flex-wrap justify-center lg:justify-start gap-4">
+              <Link to="/catalog" className="bg-vinyl-accent hover:bg-yellow-600 text-black px-10 py-4 rounded-xl font-bold transition shadow-xl shadow-yellow-900/20">Explorar Loja</Link>
+              <Link to="/procuro-por" className="border-2 border-vinyl-accent text-vinyl-accent hover:bg-vinyl-accent hover:text-black px-10 py-4 rounded-xl font-bold transition">Estou Procurando...</Link>
+            </div>
           </div>
-        </div>
-        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2 opacity-30 lg:opacity-100">
-           <img
-            className="h-56 w-full object-cover sm:h-72 md:h-96 lg:w-full lg:h-full grayscale hover:grayscale-0 transition duration-1000"
-            src="https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=2070&auto=format&fit=crop"
-            alt="Vinyl Records"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/40 to-transparent"></div>
+          <div className="flex-1 w-full max-w-lg relative group">
+             <img src="https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=2070&auto=format&fit=crop" className="w-full h-full object-cover rounded-3xl grayscale group-hover:grayscale-0 transition duration-700 shadow-2xl border border-gray-700" alt="Vinyl" />
+             <div className="absolute -bottom-6 -right-6 bg-vinyl-groove border border-gray-700 p-6 rounded-2xl shadow-2xl animate-bounce">
+                <span className="text-4xl">💿</span>
+             </div>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 space-y-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 space-y-24">
         
-        {/* Looking For Section (Procuro Por) */}
-        <section className="animate-[fadeIn_0.5s] bg-gray-900/30 p-8 rounded-3xl border border-gray-800">
+        {/* Looking For Section */}
+        <section className="bg-gray-900/30 p-8 rounded-3xl border border-gray-800">
           <div className="flex justify-between items-end mb-8">
             <div>
               <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🔍</span> Pedidos de Compra
+                <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent text-xl">🔍</span> Pedidos de Compra
               </h2>
-              <p className="text-gray-400 text-sm mt-1">Veja o que os colecionadores estão procurando e faça uma proposta!</p>
+              <p className="text-gray-400 text-sm mt-1">Veja o que o mercado está buscando e faça sua oferta.</p>
             </div>
-            <div className="flex gap-4">
-               {currentUser?.role !== 'COMPRADOR' && (
-                 <Link to="/profile" className="hidden sm:block text-green-400 hover:text-white text-[10px] font-bold uppercase tracking-widest bg-green-900/20 px-4 py-2 rounded-lg border border-green-800/50 transition">Tenho esses itens</Link>
-               )}
-               <Link to="/procuro-por" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Todos</Link>
-            </div>
+            <Link to="/procuro-por" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition border border-gray-700">Ver Todos</Link>
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {latestWants.length === 0 ? (
-              <div className="col-span-full bg-gray-800/20 border border-dashed border-gray-700 rounded-2xl p-10 text-center text-gray-500 italic">
-                Nenhum pedido recente. <Link to="/procuro-por" className="text-vinyl-accent underline ml-1">Anuncie o que você busca!</Link>
-              </div>
-            ) : (
-              latestWants.map(req => (
-                <Link to={`/procuro-por/${req.id}`} key={req.id} className="bg-gray-800 hover:bg-gray-750 rounded-2xl border border-gray-700 p-4 flex gap-4 hover:border-vinyl-accent transition group shadow-md">
-                   <div className="w-16 h-16 bg-black rounded-xl overflow-hidden flex-shrink-0 shadow-inner">
-                      <img src={req.imageUrl} className="w-full h-full object-contain group-hover:scale-110 transition duration-500" />
-                   </div>
-                   <div className="min-w-0 flex flex-col justify-center">
-                      <p className="text-white font-bold text-sm truncate">{req.title}</p>
-                      <p className="text-vinyl-accent text-[10px] truncate font-medium">{req.artist || 'Artista não especificado'}</p>
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                         <div className="w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[8px] font-bold text-vinyl-accent">{req.buyerName.charAt(0)}</div>
-                         <span className="text-[9px] text-gray-500 truncate">{req.buyerName}</span>
-                      </div>
-                   </div>
-                </Link>
-              ))
-            )}
+            {latestWants.map(req => (
+              <Link to={`/procuro-por/${req.id}`} key={req.id} className="bg-gray-800 hover:bg-gray-750 rounded-2xl border border-gray-700 p-4 flex gap-4 transition shadow-md group hover:border-vinyl-accent">
+                 <img src={req.imageUrl} className="w-16 h-16 bg-black rounded-xl object-contain group-hover:scale-105 transition" />
+                 <div className="min-w-0 flex-1 flex flex-col justify-center">
+                    <p className="text-white font-bold text-sm truncate">{req.title}</p>
+                    <p className="text-vinyl-accent text-[10px] truncate font-bold uppercase">{req.artist || 'Raridade'}</p>
+                 </div>
+              </Link>
+            ))}
           </div>
         </section>
 
-        {/* Super Lotes (Strict Catalog Style) */}
+        {/* Lotes - Mirroring Catalog Style */}
         {lotListings.length > 0 && (
           <section>
-            <div className="flex justify-between items-end mb-8">
+            <div className="flex justify-between items-end mb-8 border-b border-vinyl-accent/30 pb-4">
               <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🎁</span> Super Lotes Promocionais
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3 uppercase tracking-tighter">
+                   🎁 Super Lotes Promocionais
                 </h2>
-                <p className="text-gray-400 text-sm mt-1">Pacotes selecionados com descontos exclusivos para sua coleção.</p>
+                <p className="text-gray-500 text-sm mt-1">Pacotes especiais com descontos exclusivos.</p>
               </div>
-              <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Mais</Link>
+              <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase">Ver Mais</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {lotListings.map(l => renderListingCard(l, true))}
@@ -170,33 +115,33 @@ export const Home: React.FC = () => {
           </section>
         )}
 
-        {/* Mídias & Colecionáveis (Strict Catalog Style) */}
+        {/* Mídias - Mirroring Catalog Style */}
         <section>
-          <div className="flex justify-between items-end mb-8">
+          <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
             <div>
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">💿</span> Mídias & Colecionáveis
+              <h2 className="text-2xl font-bold text-white uppercase tracking-tighter">
+                💿 Mídias & Colecionáveis
               </h2>
-              <p className="text-gray-400 text-sm mt-1">Vinis, CDs, K7s e Laser Discs recém-chegados à loja.</p>
+              <p className="text-gray-500 text-sm mt-1">Recém adicionados ao catálogo de raridades.</p>
             </div>
-            <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ir para Loja</Link>
+            <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase">Ir para Loja</Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
             {mediaListings.map(l => renderListingCard(l))}
           </div>
         </section>
 
-        {/* Equipamentos (Strict Catalog Style) */}
+        {/* Equipamentos - Mirroring Catalog Style */}
         {equipmentListings.length > 0 && (
           <section>
-            <div className="flex justify-between items-end mb-8">
+            <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
               <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">🎛️</span> Equipamentos de Som
+                <h2 className="text-2xl font-bold text-white uppercase tracking-tighter">
+                  🎛️ Equipamentos de Som
                 </h2>
-                <p className="text-gray-400 text-sm mt-1">Aparelhos revisados e acessórios de alta fidelidade para o seu setup.</p>
+                <p className="text-gray-500 text-sm mt-1">Aparelhos revisados e acessórios HI-FI.</p>
               </div>
-              <Link to="/catalog" className="text-vinyl-accent hover:text-white text-xs font-bold uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg transition">Ver Todos</Link>
+              <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase">Ver Todos</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
               {equipmentListings.map(l => renderListingCard(l))}
@@ -204,33 +149,24 @@ export const Home: React.FC = () => {
           </section>
         )}
 
-        {/* Featured Users Section */}
-        <section className="animate-[fadeIn_0.5s]">
-          <div className="flex justify-between items-end mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <span className="bg-vinyl-accent/10 p-2 rounded-xl text-vinyl-accent">👥</span> Nossa Comunidade
-              </h2>
-              <p className="text-gray-400 text-sm mt-1">Conheça os colecionadores e lojas que fazem o Vinil D'oro acontecer.</p>
+        {/* Community Section */}
+        <section className="bg-vinyl-groove/40 p-10 rounded-3xl border border-gray-800 text-center">
+            <h2 className="text-2xl font-bold text-white mb-8">Nossa Comunidade</h2>
+            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide justify-start sm:justify-center">
+               {topSellers.map(u => (
+                 <div key={u.id} className="flex-shrink-0 w-44 bg-gray-900 border border-gray-800 rounded-3xl p-6 hover:border-vinyl-accent transition group shadow-2xl">
+                    <div className="w-20 h-20 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-bold text-vinyl-accent border-4 border-gray-800 group-hover:scale-110 transition shadow-inner">
+                       {u.nickname.charAt(0)}
+                    </div>
+                    <h4 className="text-white font-bold text-sm truncate mb-1">{u.nickname}</h4>
+                    <div className="flex justify-center items-center gap-1 mb-4">
+                       <span className="text-yellow-500 text-xs">★</span>
+                       <span className="text-xs text-gray-400">{u.sellerRating > 0 ? u.sellerRating.toFixed(1) : 'S/R'}</span>
+                    </div>
+                    <span className="text-[9px] bg-gray-800 text-gray-500 px-3 py-1 rounded-full border border-gray-700 uppercase font-black tracking-widest">{u.role}</span>
+                 </div>
+               ))}
             </div>
-          </div>
-          <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
-             {topSellers.map(u => (
-               <div key={u.id} className="flex-shrink-0 w-40 bg-gray-900 border border-gray-800 rounded-2xl p-5 text-center hover:border-vinyl-accent transition group shadow-lg">
-                  <div className="w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full mx-auto mb-3 flex items-center justify-center text-xl font-bold text-vinyl-accent border-2 border-gray-800 group-hover:scale-110 transition">
-                     {u.nickname.charAt(0)}
-                  </div>
-                  <h4 className="text-white font-bold text-xs truncate mb-1">{u.nickname}</h4>
-                  <div className="flex justify-center items-center gap-1">
-                     <span className="text-yellow-500 text-[10px]">★</span>
-                     <span className="text-[10px] text-gray-400">{u.sellerRating > 0 ? u.sellerRating.toFixed(1) : 'S/A'}</span>
-                  </div>
-                  <div className="mt-3">
-                     <span className="text-[8px] bg-gray-800 text-gray-500 px-2 py-0.5 rounded-full border border-gray-700 uppercase font-bold">{u.role}</span>
-                  </div>
-               </div>
-             ))}
-          </div>
         </section>
 
       </div>
