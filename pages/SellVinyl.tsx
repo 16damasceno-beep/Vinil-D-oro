@@ -64,6 +64,11 @@ export const SellVinyl: React.FC = () => {
   }, [discogsToken]);
 
   const handleItemTypeChange = (newType: ItemType) => {
+     if (newType === ItemType.LOTE) {
+        setMode('LOTE');
+        return;
+     }
+     
      setManualForm(prev => ({
        ...prev,
        itemType: newType,
@@ -262,8 +267,6 @@ export const SellVinyl: React.FC = () => {
     setPrice((totalPrice * 0.9).toFixed(2)); // Sugere 10% de desconto
     setDescription(`Este lote contém ${selectedListingIds.length} itens. Venda conjunta com valor reduzido!`);
     
-    // Configura o lote no formulário
-    setMode('LOTE');
     setStep(2);
   };
 
@@ -297,7 +300,7 @@ export const SellVinyl: React.FC = () => {
       : [selectedCatalogItem.coverUrl];
 
     let lotConfig = undefined;
-    if (mode === 'LOTE') {
+    if (mode === 'LOTE' || selectedCatalogItem.itemType === ItemType.LOTE) {
        const selectedEnriched = getEnrichedListings().filter(l => selectedListingIds.includes(l.id));
        const originalTotal = selectedEnriched.reduce((sum, l) => sum + l.price, 0);
        lotConfig = {
@@ -329,6 +332,17 @@ export const SellVinyl: React.FC = () => {
 
   const toggleListingSelection = (id: string) => {
     setSelectedListingIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const getArtistLabel = () => {
+    if (isEquipment) return 'Marca (Brand)';
+    if (isFeltro) return 'Estampa';
+    return 'Artista / Diretor';
+  };
+
+  const getTitleLabel = () => {
+    if (isEquipment || isFeltro) return 'Modelo';
+    return 'Título';
   };
 
   return (
@@ -366,7 +380,6 @@ export const SellVinyl: React.FC = () => {
                 <button onClick={handleLotSubmit} disabled={selectedListingIds.length < 2} className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded disabled:opacity-50">Configurar Preço do Lote</button>
               </div>
             ) : mode === 'SEARCH' ? (
-              // Busca (Media / Equipment) - Mantendo lógica anterior
               <div className="space-y-6">
                 <div className="flex gap-2">
                     <button onClick={() => setSearchCategory('MEDIA')} className={`flex-1 py-2 px-3 rounded text-sm font-bold border ${searchCategory === 'MEDIA' ? 'bg-purple-900/50 text-purple-200 border-purple-500' : 'bg-gray-900 text-gray-400 border-gray-700'}`}>💿 Mídias</button>
@@ -386,13 +399,78 @@ export const SellVinyl: React.FC = () => {
                 </div>
               </div>
             ) : (
-              // Manual Form
-              <form onSubmit={handleManualCatalogSubmit} className="space-y-4">
-                 <div className="grid grid-cols-2 gap-4">
-                    <input type="text" placeholder="Marca/Artista" required className="bg-gray-800 text-white p-2 rounded border border-gray-700" value={manualForm.artist} onChange={e => setManualForm({...manualForm, artist: e.target.value})} />
-                    <input type="text" placeholder="Modelo/Título" required className="bg-gray-800 text-white p-2 rounded border border-gray-700" value={manualForm.title} onChange={e => setManualForm({...manualForm, title: e.target.value})} />
-                 </div>
-                 <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded">Próximo Passo</button>
+              <form onSubmit={handleManualCatalogSubmit} className="space-y-4 animate-[fadeIn_0.3s]">
+                <div className="mb-6">
+                    <label className="block text-sm font-bold text-white mb-2">Qual o tipo do item?</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {Object.values(ItemType).map(t => (
+                            <button
+                                key={t}
+                                type="button"
+                                onClick={() => handleItemTypeChange(t)}
+                                className={`p-2 text-[10px] rounded border transition flex flex-col items-center justify-center gap-1 ${manualForm.itemType === t ? 'bg-vinyl-accent text-black border-vinyl-accent font-bold' : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500'} ${t === ItemType.LOTE ? 'border-vinyl-accent border-dashed text-vinyl-accent' : ''}`}
+                            >
+                                {t === ItemType.LOTE && <span>🎁</span>}
+                                {t}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-6 items-start border-t border-gray-800 pt-4">
+                   <div className="w-full md:w-64 space-y-3">
+                     <label className="block text-xs font-bold text-gray-500">Foto Principal</label>
+                     <div className="w-full aspect-square bg-gray-800 border-2 border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden group">
+                        {(manualCoverFile || manualForm.coverUrl) ? (
+                          <img 
+                            src={manualCoverFile ? URL.createObjectURL(manualCoverFile) : manualForm.coverUrl} 
+                            className="absolute inset-0 w-full h-full object-contain bg-black" 
+                          />
+                        ) : <span className="text-2xl text-gray-600">+</span>}
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={e => {
+                              setManualCoverFile(e.target.files ? e.target.files[0] : null);
+                              setManualForm(prev => ({ ...prev, coverUrl: '' })); 
+                          }}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                     </div>
+                     <input type="text" placeholder="URL da imagem..." value={manualForm.coverUrl} onChange={e => { setManualForm({...manualForm, coverUrl: e.target.value}); setManualCoverFile(null); }} className="w-full bg-gray-900 text-white text-xs p-2 border border-gray-700 rounded" />
+                   </div>
+                   
+                   <div className="flex-1 space-y-3 w-full">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col">
+                            <label className="text-[10px] text-gray-500 font-bold mb-1">{getArtistLabel()}</label>
+                            <input type="text" required className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm" value={manualForm.artist} onChange={e => setManualForm({...manualForm, artist: e.target.value})} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] text-gray-500 font-bold mb-1">{getTitleLabel()}</label>
+                            <input type="text" required className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm" value={manualForm.title} onChange={e => setManualForm({...manualForm, title: e.target.value})} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col">
+                            <label className="text-[10px] text-gray-500 font-bold mb-1">Ano</label>
+                            <input type="number" required className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm" value={manualForm.year} onChange={e => setManualForm({...manualForm, year: e.target.value})} />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-[10px] text-gray-500 font-bold mb-1">Gênero</label>
+                            <select disabled={isEquipment || isFeltro} className="w-full bg-gray-800 text-white p-2 border border-gray-700 rounded text-sm" value={manualForm.genre} onChange={e => setManualForm({...manualForm, genre: e.target.value as Genre})}>
+                              {Object.values(Genre).map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-[10px] text-gray-500 font-bold mb-1">Descrição</label>
+                        <textarea className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded text-sm h-24" value={manualForm.description} onChange={e => setManualForm({...manualForm, description: e.target.value})} />
+                      </div>
+                   </div>
+                </div>
+
+                <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded">Salvar e Continuar</button>
               </form>
             )}
           </div>
@@ -405,7 +483,9 @@ export const SellVinyl: React.FC = () => {
                <div>
                  <p className="font-bold text-white">{selectedCatalogItem.title}</p>
                  <p className="text-gray-400 text-xs">{selectedCatalogItem.artist}</p>
-                 <span className="text-[10px] bg-vinyl-accent/20 text-vinyl-accent px-2 py-0.5 rounded border border-vinyl-accent/30 mt-1 inline-block">MODO {mode}</span>
+                 <span className="text-[10px] bg-vinyl-accent/20 text-vinyl-accent px-2 py-0.5 rounded border border-vinyl-accent/30 mt-1 inline-block uppercase font-bold">
+                    {selectedCatalogItem.itemType}
+                 </span>
                </div>
              </div>
 
@@ -422,12 +502,31 @@ export const SellVinyl: React.FC = () => {
                </div>
              </div>
 
+             <div className="bg-gray-800 p-4 rounded border border-gray-700">
+              <label className="block text-sm font-bold text-white mb-2">Fotos Reais (Máx 10)</label>
+              <div className="flex flex-col gap-4">
+                 <label className="cursor-pointer bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm text-center border border-gray-600 transition w-full md:w-auto">
+                    <span>+ Selecionar Fotos</span>
+                    <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
+                 </label>
+                 {previewImages.length > 0 && (
+                   <div className="flex flex-wrap gap-3 mt-2">
+                     {previewImages.map((src, idx) => (
+                       <div key={idx} className="relative w-24 h-24 border border-gray-600 rounded overflow-hidden shadow-sm group">
+                          <img src={src} className="w-full h-full object-cover" />
+                       </div>
+                     ))}
+                   </div>
+                 )}
+              </div>
+            </div>
+
              <div>
                <label className="block text-xs font-bold text-gray-400 mb-1">Notas e Descrição</label>
                <textarea rows={4} value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-gray-800 text-white p-3 border border-gray-700 rounded" />
              </div>
 
-             <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded">Publicar Oferta</button>
+             <button type="submit" className="w-full bg-vinyl-accent hover:bg-yellow-600 text-black font-bold py-3 rounded shadow-lg shadow-yellow-900/20">Publicar Oferta</button>
           </form>
         )}
       </div>
