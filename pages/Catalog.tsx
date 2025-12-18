@@ -40,7 +40,7 @@ export const Catalog: React.FC = () => {
         <h3 className="font-bold text-white truncate text-lg">{listing.catalogItem.title}</h3>
         <p className="text-sm text-vinyl-accent truncate">{listing.catalogItem.artist}</p>
         <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-700">
-          <span className="text-xs text-gray-400">R$ individual</span>
+          <span className="text-xs text-gray-400">Preço</span>
           <span className="text-xl font-bold text-white">R$ {listing.price.toFixed(2)}</span>
         </div>
       </div>
@@ -52,38 +52,69 @@ export const Catalog: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-white mb-8">Loja & Catálogo</h1>
         
+        {/* Filtros */}
         <div className="flex flex-col md:flex-row gap-4 mb-12 bg-gray-900/50 p-4 rounded-xl border border-gray-800">
-          <input type="text" placeholder="Pesquisar..." className="flex-1 bg-gray-800 text-white rounded px-4 py-2" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          <select className="bg-gray-800 text-white rounded px-4 py-2" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
-             {itemTypes.map(t => <option key={t} value={t}>{t}</option>)}
+          <div className="flex-1 relative">
+            <input 
+              type="text" 
+              placeholder="Pesquisar por artista ou álbum..." 
+              className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 border border-gray-700 focus:border-vinyl-accent outline-none" 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+            />
+          </div>
+          <select 
+            className="bg-gray-800 text-white rounded-lg px-4 py-3 border border-gray-700 focus:border-vinyl-accent outline-none cursor-pointer" 
+            value={selectedType} 
+            onChange={(e) => setSelectedType(e.target.value)}
+          >
+             <option value="Todos">Todos os Tipos</option>
+             {Object.values(ItemType).map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
 
-        {/* Lotes */}
-        {lotListings.length > 0 && (
+        {/* 1. Mídias (Sempre primeiro) */}
+        <div className="mb-12">
+          <h2 className="text-xl font-bold text-white uppercase mb-6 border-b border-gray-800 pb-2 flex items-center gap-2">
+            <span className="text-vinyl-accent">💿</span> Mídias & Colecionáveis
+          </h2>
+          {mediaListings.length === 0 ? (
+            <p className="text-gray-500 italic text-sm py-4">Nenhum item individual encontrado.</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+              {mediaListings.map(l => renderListingCard(l))}
+            </div>
+          )}
+        </div>
+
+        {/* 2. Equipamentos (Segundo) */}
+        {equipmentListings.length > 0 && (
           <div className="mb-12">
-            <h2 className="text-xl font-bold text-white uppercase tracking-wider mb-6 border-b border-vinyl-accent pb-2">🎁 Super Lotes Promocionais</h2>
+            <h2 className="text-xl font-bold text-white uppercase mb-6 border-b border-gray-800 pb-2 flex items-center gap-2">
+               <span className="text-vinyl-accent">🎛️</span> Equipamentos
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+              {equipmentListings.map(l => renderListingCard(l))}
+            </div>
+          </div>
+        )}
+
+        {/* 3. Lotes (Agora no Final) */}
+        {lotListings.length > 0 && (
+          <div className="mt-20 pt-10 border-t border-gray-800">
+            <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-8 flex items-center gap-3">
+              <span className="bg-vinyl-accent text-black w-10 h-10 rounded-xl flex items-center justify-center text-lg">🎁</span> 
+              Super Lotes Promocionais
+            </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {lotListings.map(l => renderListingCard(l, true))}
             </div>
           </div>
         )}
 
-        {/* Mídias */}
-        <div className="mb-12">
-          <h2 className="text-xl font-bold text-white uppercase mb-6 border-b border-gray-800 pb-2">Mídias & Colecionáveis</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-            {mediaListings.map(l => renderListingCard(l))}
-          </div>
-        </div>
-
-        {/* Equipamentos */}
-        {equipmentListings.length > 0 && (
-          <div>
-            <h2 className="text-xl font-bold text-white uppercase mb-6 border-b border-gray-800 pb-2">Equipamentos</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-              {equipmentListings.map(l => renderListingCard(l))}
-            </div>
+        {filteredListings.length === 0 && (
+          <div className="py-20 text-center text-gray-500">
+            Nenhum resultado para os filtros selecionados.
           </div>
         )}
       </div>
