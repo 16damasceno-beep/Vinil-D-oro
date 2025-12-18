@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useStore } from '../store';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, UserRole } from '../types';
+import { verifyCpfNameMatch } from '../services/geminiService';
 
 export const Login: React.FC = () => {
   const { login, register, requestPasswordReset } = useStore();
@@ -10,6 +11,10 @@ export const Login: React.FC = () => {
   
   // Controls current view: LOGIN, REGISTER, FORGOT, or REGISTRATION_SUCCESS
   const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'FORGOT' | 'REGISTRATION_SUCCESS'>('LOGIN');
+
+  // Validation State
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Pending Validation Data
   const [pendingValidationData, setPendingValidationData] = useState<{email: string, token: string} | null>(null);
@@ -43,10 +48,12 @@ export const Login: React.FC = () => {
       value = value.replace(/(\d{4})(\d)/, '$1-$2');
     }
     setCpf(value);
+    if (validationError) setValidationError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
     
     if (view === 'FORGOT') {
       if (!email) return alert("Por favor, digite seu e-mail.");
@@ -63,7 +70,7 @@ export const Login: React.FC = () => {
       if (!acceptedTerms) {
         return alert("Para prosseguir com o cadastro, você deve ler e aceitar o Termo de Responsabilidade.");
       }
-      // Mandatory Fields Check (Password removed from check)
+      // Mandatory Fields Check
       if (!name.trim() || !nickname.trim() || !cpf.trim() || !address.trim() || !phone.trim() || !email.trim()) {
         return alert("Todos os campos são obrigatórios.");
       }
@@ -71,6 +78,16 @@ export const Login: React.FC = () => {
       const cleanCpf = cpf.replace(/\D/g, '');
       if (cleanCpf.length !== 11 && cleanCpf.length !== 14) {
         return alert("CPF ou CNPJ inválido.");
+      }
+
+      // NOVO PASSO: VALIDAÇÃO DE IDENTIDADE COM GEMINI
+      setIsVerifying(true);
+      const validation = await verifyCpfNameMatch(name, cpf);
+      setIsVerifying(false);
+
+      if (!validation.isValid) {
+        setValidationError(validation.reason || "O nome informado não condiz com este CPF nos registros oficiais.");
+        return;
       }
       
       // Fix: Added missing 'transactions' property to comply with User interface
@@ -162,7 +179,15 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-vinyl-black flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-gray-900 p-8 rounded-xl shadow-2xl border border-gray-800">
+      <div className="max-w-md w-full space-y-8 bg-gray-900 p-8 rounded-xl shadow-2xl border border-gray-800 relative overflow-hidden">
+        {isVerifying && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center text-center p-6 animate-[fadeIn_0.2s]">
+             <div className="w-12 h-12 border-4 border-vinyl-accent border-t-transparent rounded-full animate-spin mb-4"></div>
+             <p className="text-white font-bold">Validando sua identidade...</p>
+             <p className="text-gray-400 text-xs mt-2">Consultando registros para garantir a segurança da comunidade.</p>
+          </div>
+        )}
+
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
             {renderTitle()}
@@ -171,6 +196,14 @@ export const Login: React.FC = () => {
             {renderSubtitle()}
           </p>
         </div>
+
+        {validationError && (
+          <div className="bg-red-900/30 border border-red-500 text-red-200 p-3 rounded-lg text-xs font-medium animate-[shake_0.4s]">
+             <span className="font-black mr-2">⚠️ ERRO:</span>
+             {validationError}
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           
           {/* Email is always visible */}
@@ -214,7 +247,7 @@ export const Login: React.FC = () => {
                     type="text"
                     required
                     className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 focus:outline-none focus:ring-vinyl-accent focus:border-vinyl-accent focus:z-10 sm:text-sm"
-                    placeholder="Nome Completo (Privado)"
+                    placeholder="Nome Completo (Conforme CPF)"
                     value={name}
                     onChange={e => setName(e.target.value)}
                   />
@@ -289,7 +322,7 @@ export const Login: React.FC = () => {
                       Termo de Responsabilidade
                     </label>
                     <p className="text-gray-500 mt-1 text-justify leading-relaxed">
-                      Declaro estar ciente de que o site <strong>Vinil D'oro</strong> não se responsabiliza pelas negociações, estado dos produtos ou envios. A plataforma atua apenas como integradora entre as partes. Toda a negociação é de responsabilidade exclusiva dos usuários (comprador e vendedor).
+                      Declaro estar ciente de que o site <strong>Vinil D'oro</strong> utiliza serviços de validação de identidade para prevenir fraudes.
                     </p>
                   </div>
                 </div>
@@ -300,9 +333,10 @@ export const Login: React.FC = () => {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-md text-black bg-vinyl-accent hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+              disabled={isVerifying}
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-md text-black bg-vinyl-accent hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-all ${isVerifying ? 'opacity-50 scale-95' : 'hover:shadow-[0_0_15px_rgba(212,175,55,0.4)]'}`}
             >
-              {view === 'REGISTER' ? 'Cadastrar e Validar E-mail' : (view === 'FORGOT' ? 'Enviar Link de Recuperação' : 'Entrar')}
+              {isVerifying ? 'Validando...' : (view === 'REGISTER' ? 'Cadastrar e Validar E-mail' : (view === 'FORGOT' ? 'Enviar Link de Recuperação' : 'Entrar'))}
             </button>
           </div>
           

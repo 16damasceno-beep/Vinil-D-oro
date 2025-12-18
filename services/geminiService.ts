@@ -5,6 +5,43 @@ import { Genre, ItemType } from "../types";
 const genreKeys = Object.values(Genre);
 const itemTypeKeys = Object.values(ItemType);
 
+export const verifyCpfNameMatch = async (name: string, cpf: string): Promise<{ isValid: boolean; reason?: string }> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Aja como um validador de identidade brasileiro (KYC). 
+      Verifique se o CPF "${cpf}" e o Nome Completo "${name}" são consistentes.
+      Considere:
+      1. Se o CPF tem 11 dígitos e é matematicamente válido (algoritmo de dígitos verificadores).
+      2. Se o nome é um nome completo real e plausível para os registros brasileiros.
+      3. Importante: Se for um CPF de teste óbvio (como 111.111.111-11) ou nome falso, retorne como inválido.
+      
+      Retorne apenas JSON.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isValid: { type: Type.BOOLEAN },
+            reason: { type: Type.STRING }
+          },
+          required: ["isValid"]
+        }
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text);
+    }
+    return { isValid: false, reason: "Erro na comunicação com o serviço de validação." };
+  } catch (error) {
+    console.error("Erro na validação de identidade:", error);
+    // Em caso de erro técnico, permitimos (ou bloqueamos dependendo da política)
+    return { isValid: true }; // Fallback para não travar o app se a cota da API acabar
+  }
+};
+
 export const getAlbumDetails = async (query: string): Promise<{ artist: string; title: string; genre: string; description: string; year: number; imageSearchQuery: string; tracks: {position: string, title: string, duration: string}[] } | null> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
