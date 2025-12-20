@@ -85,6 +85,18 @@ const saveToDB = (key: string, data: any) => {
   }
 };
 
+// FUNÇÃO PARA FILTRAR DADOS SENSÍVEIS (Regex de Telefone e Email)
+const filterSensitiveData = (text: string): string => {
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  // Regex para telefones brasileiros variados (com ou sem DDD, com ou sem traço)
+  const phoneRegex = /(\(?\d{2}\)?\s?\d{4,5}-?\d{4})|(\b\d{8,11}\b)/g;
+  
+  let filtered = text.replace(emailRegex, '[E-MAIL BLOQUEADO]');
+  filtered = filtered.replace(phoneRegex, '[CONTATO BLOQUEADO]');
+  
+  return filtered;
+};
+
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => loadFromDB(DB_KEYS.USERS, []));
   const [catalog, setCatalog] = useState<CatalogItem[]>(() => loadFromDB(DB_KEYS.CATALOG, []));
@@ -188,12 +200,20 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const sendMessage = (listingId: string, receiverId: string, text: string) => {
     if (!currentUser) return;
+    
+    // VERIFICAR SE O ITEM JÁ FOI COMPRADO PARA LIBERAR DADOS
+    const listing = listings.find(l => l.id === listingId);
+    const isBought = listing && ['AGUARDANDO_ENVIO', 'ENVIADO', 'CONCLUÍDO'].includes(listing.status);
+    
+    // Filtrar apenas se NÃO estiver comprado
+    const finalText = isBought ? text : filterSensitiveData(text);
+
     const newMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       listingId,
       senderId: currentUser.id,
       receiverId,
-      text,
+      text: finalText,
       createdAt: new Date().toISOString(),
       read: false
     };
@@ -203,7 +223,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const receiver = users.find(u => u.id === receiverId);
     if (receiver) {
-      const listing = listings.find(l => l.id === listingId);
       const catalogItem = catalog.find(c => c.id === listing?.catalogItemId);
       const updatedReceiver = {
         ...receiver,
