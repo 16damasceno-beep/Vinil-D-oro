@@ -13,7 +13,7 @@ export const Home: React.FC = () => {
 
   const lotListings = allActiveListings.filter(l => l.catalogItem.itemType === ItemType.LOTE).slice(0, 4);
   const equipmentListings = allActiveListings.filter(l => l.catalogItem.itemType === ItemType.EQUIPMENT).slice(0, 5);
-  const mediaListings = allActiveListings.filter(l => l.catalogItem.itemType !== ItemType.EQUIPMENT && l.catalogItem.itemType !== ItemType.LOTE).slice(0, 10);
+  const mediaListings = allActiveListings.filter(l => l.catalogItem.itemType !== ItemType.EQUIPMENT && l.catalogItem.itemType !== ItemType.LOTE).slice(0, 12);
 
   const latestWants = wantRequests.filter(r => r.status === 'ABERTO').slice(0, 4);
 
@@ -70,7 +70,25 @@ export const Home: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 space-y-24">
-        <section className="bg-gray-900/30 p-8 rounded-3xl border border-gray-800 animate-[fadeIn_0.5s]">
+        
+        {/* DESTAQUE PRINCIPAL: MÍDIAS E COLECIONÁVEIS */}
+        <section className="animate-[fadeIn_0.5s]">
+          <div className="flex justify-between items-end mb-8 border-b border-vinyl-accent/30 pb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white uppercase tracking-tighter flex items-center gap-3">
+                <span className="text-xl bg-vinyl-accent/10 p-2 rounded-lg text-vinyl-accent">💿</span> Mídias & Colecionáveis
+              </h2>
+              <p className="text-gray-500 text-sm mt-1">Nossas joias recém-adicionadas para sua coleção.</p>
+            </div>
+            <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase hover:underline bg-gray-900 px-4 py-2 rounded border border-gray-800 transition hover:bg-gray-800">Ver Tudo</Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            {mediaListings.map(l => renderListingCard(l))}
+          </div>
+        </section>
+
+        {/* SEÇÃO SECUNDÁRIA: PEDIDOS DE COMPRA */}
+        <section className="bg-gray-900/30 p-8 rounded-3xl border border-gray-800 animate-[fadeIn_0.6s]">
           <div className="flex justify-between items-end mb-8">
             <div>
               <h2 className="text-2xl font-bold text-white flex items-center gap-3">
@@ -93,40 +111,8 @@ export const Home: React.FC = () => {
           </div>
         </section>
 
-        {lotListings.length > 0 && (
-          <section className="animate-[fadeIn_0.6s]">
-            <div className="flex justify-between items-end mb-8 border-b border-vinyl-accent/30 pb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3 uppercase tracking-tighter">
-                   🎁 Super Lotes Promocionais
-                </h2>
-                <p className="text-gray-500 text-sm mt-1">Pacotes especiais com descontos exclusivos.</p>
-              </div>
-              <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase hover:underline">Ver Mais</Link>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {lotListings.map(l => renderListingCard(l, true))}
-            </div>
-          </section>
-        )}
-
-        <section className="animate-[fadeIn_0.7s]">
-          <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
-            <div>
-              <h2 className="text-2xl font-bold text-white uppercase tracking-tighter flex items-center gap-3">
-                <span className="text-xl">💿</span> Mídias & Colecionáveis
-              </h2>
-              <p className="text-gray-500 text-sm mt-1">Recém adicionados ao catálogo de raridades.</p>
-            </div>
-            <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase hover:underline">Ir para Loja</Link>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-            {mediaListings.map(l => renderListingCard(l))}
-          </div>
-        </section>
-
         {equipmentListings.length > 0 && (
-          <section className="animate-[fadeIn_0.8s]">
+          <section className="animate-[fadeIn_0.7s]">
             <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-white uppercase tracking-tighter flex items-center gap-3">
@@ -138,6 +124,23 @@ export const Home: React.FC = () => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
               {equipmentListings.map(l => renderListingCard(l))}
+            </div>
+          </section>
+        )}
+
+        {lotListings.length > 0 && (
+          <section className="animate-[fadeIn_0.8s] mt-20">
+            <div className="flex justify-between items-end mb-8 border-b border-vinyl-accent/30 pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3 uppercase tracking-tighter">
+                   🎁 Super Lotes Promocionais
+                </h2>
+                <p className="text-gray-500 text-sm mt-1">Pacotes especiais com descontos exclusivos.</p>
+              </div>
+              <Link to="/catalog" className="text-vinyl-accent font-bold text-xs uppercase hover:underline">Ver Mais</Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {lotListings.map(l => renderListingCard(l, true))}
             </div>
           </section>
         )}
