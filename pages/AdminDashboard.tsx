@@ -106,6 +106,7 @@ export const AdminDashboard: React.FC = () => {
       // Create Mode
       if (!userForm.password) return alert("Senha é obrigatória para novos usuários.");
       
+      // Fix: Added missing 'transactions' property to comply with User interface requirements (Error in file pages/AdminDashboard.tsx on line 109)
       const newUser: User = {
         id: `u-${Date.now()}`,
         ...userForm,
@@ -113,6 +114,7 @@ export const AdminDashboard: React.FC = () => {
         walletBalance: 0,
         favorites: [],
         notifications: [],
+        transactions: [],
         savedPaymentMethods: [],
         sellerRating: 0,
         sellerReviewCount: 0,

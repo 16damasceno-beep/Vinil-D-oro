@@ -1,38 +1,28 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // ==================================================================================
-// INSTRUÇÕES PARA ATIVAR O BANCO DE DADOS (ONLINE):
-// 1. Crie um projeto gratuito em https://supabase.com
-// 2. No painel do Supabase, vá em "Settings" (engrenagem) -> "API".
-// 3. Copie a "Project URL" e a chave "anon" / "public".
-// 4. Cole nos campos abaixo dentro das aspas.
-//
-// SE NÃO PREENCHER: O site funcionará em modo "Local" (salva apenas no seu navegador).
+// PARA HOSPEDAR E USAR O SITE REALMENTE:
+// 1. Crie uma conta em supabase.com
+// 2. Crie um projeto e copie a URL e a Anon Key abaixo.
+// 3. Sem isso, o site só salva dados localmente no seu navegador atual.
 // ==================================================================================
 
-const PROJECT_URL: string = ""; // Ex: "https://abcdefgh.supabase.co"
-const ANON_KEY: string = "";    // Ex: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+const PROJECT_URL: string = ""; // Insira aqui sua URL do Supabase
+const ANON_KEY: string = "";    // Insira aqui sua Chave Anon do Supabase
 
-// Lógica de Inicialização
 const hasKeys = PROJECT_URL && ANON_KEY && PROJECT_URL.length > 10;
 
 export const supabase = hasKeys 
   ? createClient(PROJECT_URL, ANON_KEY)
   : null;
 
-if (!hasKeys) {
-  console.log("⚠️ Supabase não configurado. Rodando em modo LocalStorage (Offline).");
-}
-
-// Helper para salvar dados (Funciona apenas se o supabase estiver ativo)
 export const dbUpsert = async (table: string, item: any) => {
-  if (!supabase) return; // Se não tiver chaves, não faz nada (o store usa LocalStorage)
-  
+  if (!supabase) return;
   try {
     const { error } = await supabase
       .from(table)
       .upsert({ id: item.id, data: item }, { onConflict: 'id' });
-      
     if (error) console.error(`Erro Supabase (${table}):`, error);
   } catch (err) {
     console.error("Erro DB:", err);
